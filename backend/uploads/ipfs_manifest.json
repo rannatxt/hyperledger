@@ -1,0 +1,38 @@
+{
+  "bafkafkreiankucnebq3txkhygj5hovwbu7fl6ps7t2shw26gwvaq77nreuk5e": {
+    "cid": "bafkafkreiankucnebq3txkhygj5hovwbu7fl6ps7t2shw26gwvaq77nreuk5e",
+    "filename": "bafkafkreiankucnebq3txkhygj5hovwbu7fl6ps7t2shw26gwvaq77nreuk5e.png",
+    "originalName": "sample.png",
+    "mimeType": "image/png",
+    "size": 39,
+    "timestamp": "2026-09-22T05:54:47.635Z",
+    "pinned": true
+  },
+  "bafybeigdyrzt5sfp7udm7hu76uh7y26nf3efuylqabf3oclgtqy55fbzdi": {
+    "cid": "bafybeigdyrzt5sfp7udm7hu76uh7y26nf3efuylqabf3oclgtqy55fbzdi",
+    "filename": "bafybeigdyrzt5sfp7udm7hu76uh7y26nf3efuylqabf3oclgtqy55fbzdi.svg",
+    "originalName": "genesis_fabric_block.svg",
+    "mimeType": "image/svg+xml",
+    "size": 1438,
+    "timestamp": "2026-09-01T00:00:00.000Z",
+    "pinned": true
+  },
+  "bafybeihdwdcefgh4dqkjv67uzcmw7ojee6xedzdetojuzjevtenxquvyku": {
+    "cid": "bafybeihdwdcefgh4dqkjv67uzcmw7ojee6xedzdetojuzjevtenxquvyku",
+    "filename": "bafybeihdwdcefgh4dqkjv67uzcmw7ojee6xedzdetojuzjevtenxquvyku.svg",
+    "originalName": "decentralized_identity.svg",
+    "mimeType": "image/svg+xml",
+    "size": 1285,
+    "timestamp": "2026-09-01T00:00:00.000Z",
+    "pinned": true
+  },
+  "bafybeibml5fanx2qipldt7n76l7l2y77jygz7z3y6y5z4k7p4w6y4i5v5y": {
+    "cid": "bafybeibml5fanx2qipldt7n76l7l2y77jygz7z3y6y5z4k7p4w6y4i5v5y",
+    "filename": "bafybeibml5fanx2qipldt7n76l7l2y77jygz7z3y6y5z4k7p4w6y4i5v5y.svg",
+    "originalName": "generative_ipfs_asset.svg",
+    "mimeType": "image/svg+xml",
+    "size": 1302,
+    "timestamp": "2026-09-01T00:00:00.000Z",
+    "pinned": true
+  }
+}

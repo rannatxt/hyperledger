@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="800" height="800" viewBox="0 0 800 800">
+          <defs>
+            <linearGradient id="g3" x1="0%" y1="0%" x2="100%" y2="100%">
+              <stop offset="0%" stop-color="#090a0f" />
+              <stop offset="100%" stop-color="#1b2735" />
+            </linearGradient>
+            <linearGradient id="gpurple" x1="0%" y1="0%" x2="100%" y2="100%">
+              <stop offset="0%" stop-color="#8a2387" />
+              <stop offset="50%" stop-color="#e94057" />
+              <stop offset="100%" stop-color="#f27121" />
+            </linearGradient>
+          </defs>
+          <rect width="800" height="800" fill="url(#g3)" />
+          <circle cx="400" cy="400" r="180" fill="none" stroke="url(#gpurple)" stroke-width="8"/>
+          <text x="400" y="385" fill="#ffffff" font-size="34" font-family="-apple-system, BlinkMacSystemFont, sans-serif" font-weight="bold" text-anchor="middle">IPFS PINNED ASSET</text>
+          <text x="400" y="430" fill="#e94057" font-size="22" font-family="-apple-system, BlinkMacSystemFont, sans-serif" font-weight="600" text-anchor="middle">Content Addressed</text>
+          <text x="400" y="470" fill="#888888" font-size="14" font-family="monospace" text-anchor="middle">CIDv1 SHA-256 Multihash</text>
+        </svg>

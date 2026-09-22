@@ -1,0 +1,18 @@
+{
+  "name": "instaledger-backend",
+  "version": "1.0.0",
+  "description": "Express middleware and IPFS mock service for InstaLedger on Hyperledger Fabric",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node --watch server.js",
+    "test": "node --test test/*.test.js"
+  },
+  "dependencies": {
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.5",
+    "express": "^4.19.2",
+    "morgan": "^1.10.0",
+    "multer": "^1.4.5-lts.1"
+  }
+}
