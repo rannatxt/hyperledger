@@ -52,7 +52,33 @@ router.post('/', upload.single('media'), async (req, res) => {
     res.status(201).json(postRecord);
   } catch (err) {
     console.error('Error creating post on ledger:', err);
+    if (err.message && err.message.includes('Tamper-proof error')) {
+      return res.status(409).json({ error: err.message, tamperProofError: true });
+    }
     res.status(400).json({ error: err.message });
+  }
+});
+
+// Check duplicate photo hash
+router.post('/check-duplicate', async (req, res) => {
+  try {
+    const { contentHash } = req.body;
+    if (!contentHash) {
+      return res.status(400).json({ error: 'contentHash is required' });
+    }
+    const rawFeed = await fabricClient.evaluateTransaction('getFeed');
+    const posts = JSON.parse(rawFeed);
+    const existing = posts.find(p => p.contentHash && p.contentHash.toLowerCase() === contentHash.trim().toLowerCase());
+    if (existing) {
+      return res.json({
+        isDuplicate: true,
+        error: 'Tamper-proof error: This exact photo has already been immutably recorded on the ledger.',
+        existingPost: existing
+      });
+    }
+    res.json({ isDuplicate: false, message: 'Cryptographically unique' });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
   }
 });
 

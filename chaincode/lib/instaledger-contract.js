@@ -104,6 +104,7 @@ class InstaLedgerContract extends Contract {
     for (const post of defaultPosts) {
       const record = { docType: 'post', ...post };
       await ctx.stub.putState(`Post~${post.id}`, toBuffer(record));
+      await ctx.stub.putState(`ContentHash~${post.contentHash.trim().toLowerCase()}`, toBuffer({ postId: post.id, authorId: post.authorId, timestamp: post.timestamp }));
     }
 
     // Default follows
@@ -244,6 +245,12 @@ class InstaLedgerContract extends Contract {
     }
     const author = fromBuffer(authorBytes);
 
+    const contentHashKey = `ContentHash~${contentHash.trim().toLowerCase()}`;
+    const existingHash = await ctx.stub.getState(contentHashKey);
+    if (existingHash && existingHash.length > 0) {
+      throw new Error('Tamper-proof error: This exact photo has already been immutably recorded on the ledger.');
+    }
+
     const postKey = `Post~${postId}`;
     const existing = await ctx.stub.getState(postKey);
     if (existing && existing.length > 0) {
@@ -256,7 +263,7 @@ class InstaLedgerContract extends Contract {
       authorId: author.id,
       authorUsername: author.username,
       authorAvatar: author.avatarUrl,
-      contentHash,
+      contentHash: contentHash.trim().toLowerCase(),
       mediaUrl: mediaUrl || '',
       caption: caption || '',
       timestamp: new Date().toISOString(),
@@ -265,6 +272,7 @@ class InstaLedgerContract extends Contract {
     };
 
     await ctx.stub.putState(postKey, toBuffer(newPost));
+    await ctx.stub.putState(contentHashKey, toBuffer({ postId, authorId, timestamp: newPost.timestamp }));
     // Index post under author for fast retrieval
     const authorPostIndex = ctx.stub.createCompositeKey('AuthorPost', [authorId, postId]);
     await ctx.stub.putState(authorPostIndex, toBuffer({ postId, timestamp: newPost.timestamp }));
