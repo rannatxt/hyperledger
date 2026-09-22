@@ -34,5 +34,14 @@
     "size": 1302,
     "timestamp": "2026-09-01T00:00:00.000Z",
     "pinned": true
+  },
+  "bafkafkreicz5dsud5nl3btgk53dpudphwtlvdznr6hbayc2kykbhbugnhodha": {
+    "cid": "bafkafkreicz5dsud5nl3btgk53dpudphwtlvdznr6hbayc2kykbhbugnhodha",
+    "filename": "bafkafkreicz5dsud5nl3btgk53dpudphwtlvdznr6hbayc2kykbhbugnhodha.jpg",
+    "originalName": "cyberpunk_tokyo.jpg",
+    "mimeType": "image/jpeg",
+    "size": 149573,
+    "timestamp": "2026-09-22T07:29:21.199Z",
+    "pinned": true
   }
 }
