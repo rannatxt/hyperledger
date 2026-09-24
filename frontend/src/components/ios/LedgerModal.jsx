@@ -149,37 +149,40 @@ export default function LedgerModal({ isOpen, onClose, highlightPost }) {
           ) : (
             /* Tamper-Proof Audit tab */
             <div className="space-y-4 text-xs">
-              <div className="p-4 rounded-2xl bg-neutral-900 border border-white/10 space-y-3">
+              <div className="p-4 rounded-[20px] bg-neutral-900 border border-white/10 space-y-3">
                 <div className="flex items-center gap-2 font-bold text-sm text-white">
-                  <ShieldCheck className="w-5 h-5 text-green-400" />
-                  Cryptographic Duplicate Prevention
+                  <ShieldCheck className="w-5 h-5 text-[#34c759]" />
+                  Global Cryptographic & Perceptual Duplicate Prevention
                 </div>
                 <p className="text-gray-300 leading-relaxed">
-                  Every image uploaded undergoes SHA-256 binary hashing via the Web Crypto API before submission.
-                  The Hyperledger Fabric smart contract stores the hash in the immutable world state under:
+                  Every uploaded image undergoes dual tamper-proof inspection: exact SHA-256 multihashing and 64-bit perceptual visual fingerprinting (dHash/blockhash).
+                  The Fabric smart contract records state keys under:
                 </p>
-                <div className="p-2 rounded-xl bg-black/70 font-mono text-ios-blue border border-white/10 break-all">
-                  ContentHash~[sha256_hex]
+                <div className="p-2 rounded-xl bg-black/70 font-mono text-[#007aff] border border-white/10 break-all space-y-1">
+                  <div>ContentHash~[sha256_hex]</div>
+                  <div className="text-purple-400">PerceptualHash~[phash_hex]</div>
                 </div>
                 <p className="text-gray-300 leading-relaxed">
-                  If the hash already exists, the transaction is immediately rejected with:
+                  If an exact match OR a perceptually similar variant (including horizontal image reversals, cropping, and compression) is detected across <strong>any user account</strong>, the block endorsement is rejected with:
                 </p>
-                <div className="p-3 rounded-xl bg-ios-red/15 border border-ios-red/30 font-semibold text-ios-red leading-relaxed">
-                  "Tamper-proof error: This exact photo has already been immutably recorded on the ledger."
+                <div className="p-3 rounded-xl bg-[#ff3b30]/15 border border-[#ff3b30]/40 font-semibold text-[#ff3b30] leading-relaxed">
+                  "Blockchain Security Alert: This image (or a heavily similar variant) has already been immutably registered on the ledger by another user."
                 </div>
               </div>
 
-              <div className="p-4 rounded-2xl bg-neutral-900 border border-white/10 space-y-2">
-                <p className="font-bold text-white">Audit Checklist</p>
+              <div className="p-4 rounded-[20px] bg-neutral-900 border border-white/10 space-y-2.5">
+                <p className="font-bold text-white">Fabric Security Audit Verification</p>
                 {[
-                  'SHA-256 computed on raw file binary (WebCrypto API)',
-                  'Real-time pre-check against Fabric world state before upload',
-                  'Blocks linked via previousBlockHash SHA-256 chains',
-                  'RW-sets recorded for every state mutation',
-                  'Rejected transactions logged on-ledger with rejection reason',
+                  'Exact SHA-256 computed on raw file binary (WebCrypto API)',
+                  '64-bit perceptual visual fingerprinting (dHash / blockhash)',
+                  'Horizontal mirror & reversal detection via mirrored pHash',
+                  'Hamming distance threshold comparison (distance ≤ 10 / 64 bits)',
+                  'Global ledger state rejection across all participant MSPs',
+                  'Cryptographic block linking via SHA-256 hash chains',
+                  'Zero-knowledge style read/write sets committed per transaction',
                 ].map(item => (
                   <div key={item} className="flex items-start gap-2 text-gray-300">
-                    <Check className="w-4 h-4 text-green-400 flex-shrink-0 mt-0.5" />
+                    <Check className="w-4 h-4 text-[#34c759] flex-shrink-0 mt-0.5" />
                     <span>{item}</span>
                   </div>
                 ))}

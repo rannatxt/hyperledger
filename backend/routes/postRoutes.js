@@ -7,6 +7,8 @@ const crypto = require('crypto');
 const fabricClient = require('../services/fabricClient');
 const ipfsService = require('../services/ipfsService');
 
+const perceptualHashService = require('../services/perceptualHash');
+
 const upload = multer({
   storage: multer.memoryStorage(),
   limits: { fileSize: 25 * 1024 * 1024 }
@@ -15,13 +17,13 @@ const upload = multer({
 // Create post (handles file upload to IPFS -> commits metadata to Fabric ledger)
 router.post('/', upload.single('media'), async (req, res) => {
   try {
-    let { authorId, caption, contentHash, mediaUrl } = req.body;
+    let { authorId, caption, contentHash, mediaUrl, perceptualHash, perceptualHashReversed } = req.body;
 
     if (!authorId) {
       return res.status(400).json({ error: 'authorId is required' });
     }
 
-    // If file was uploaded in the request, store it in IPFS mock first
+    // If file was uploaded in the request, store it in IPFS mock and compute perceptual fingerprint
     if (req.file) {
       const ipfsRecord = await ipfsService.uploadBuffer(
         req.file.buffer,
@@ -30,6 +32,11 @@ router.post('/', upload.single('media'), async (req, res) => {
       );
       contentHash = ipfsRecord.cid;
       mediaUrl = `/api/ipfs/${ipfsRecord.cid}`;
+
+      // Automatically compute perceptual fingerprint from the uploaded file buffer
+      const fp = perceptualHashService.computePerceptualFingerprint(req.file.buffer, req.file.mimetype);
+      perceptualHash = fp.pHash;
+      perceptualHashReversed = fp.pHashReversed;
     }
 
     if (!contentHash) {
@@ -45,39 +52,68 @@ router.post('/', upload.single('media'), async (req, res) => {
       authorId,
       contentHash,
       caption || '',
-      mediaUrl || `/api/ipfs/${contentHash}`
+      mediaUrl || `/api/ipfs/${contentHash}`,
+      perceptualHash || '',
+      perceptualHashReversed || ''
     );
 
     const postRecord = JSON.parse(result);
     res.status(201).json(postRecord);
   } catch (err) {
     console.error('Error creating post on ledger:', err);
-    if (err.message && err.message.includes('Tamper-proof error')) {
+    if (err.message && (err.message.includes('Blockchain Security Alert') || err.message.includes('Tamper-proof'))) {
       return res.status(409).json({ error: err.message, tamperProofError: true });
     }
     res.status(400).json({ error: err.message });
   }
 });
 
-// Check duplicate photo hash
-router.post('/check-duplicate', async (req, res) => {
+// Check duplicate photo hash (handles both cryptographic & perceptual similarity)
+router.post('/check-duplicate', upload.single('media'), async (req, res) => {
   try {
-    const { contentHash } = req.body;
-    if (!contentHash) {
-      return res.status(400).json({ error: 'contentHash is required' });
+    let { contentHash, perceptualHash, perceptualHashReversed } = req.body;
+
+    // If a media file was attached, compute SHA-256 and perceptual hashes on the fly
+    if (req.file) {
+      const fp = perceptualHashService.computePerceptualFingerprint(req.file.buffer, req.file.mimetype);
+      contentHash = fp.sha256;
+      perceptualHash = fp.pHash;
+      perceptualHashReversed = fp.pHashReversed;
     }
-    const rawFeed = await fabricClient.evaluateTransaction('getFeed');
-    const posts = JSON.parse(rawFeed);
-    const existing = posts.find(p => p.contentHash && p.contentHash.toLowerCase() === contentHash.trim().toLowerCase());
-    if (existing) {
+
+    if (!contentHash && !perceptualHash) {
+      return res.status(400).json({ error: 'Either media file, contentHash, or perceptualHash is required' });
+    }
+
+    // Evaluate against Fabric chaincode
+    const rawCheck = await fabricClient.evaluateTransaction(
+      'checkDuplicateImage',
+      contentHash || '',
+      perceptualHash || '',
+      perceptualHashReversed || ''
+    );
+    const checkResult = JSON.parse(rawCheck);
+
+    if (checkResult.isDuplicate) {
       return res.json({
         isDuplicate: true,
-        error: 'Tamper-proof error: This exact photo has already been immutably recorded on the ledger.',
-        existingPost: existing
+        matchType: checkResult.matchType || 'perceptual',
+        distance: checkResult.distance,
+        similarity: checkResult.similarity,
+        existingPost: checkResult.existingPost,
+        error: checkResult.error || 'Blockchain Security Alert: This image (or a heavily similar variant) has already been immutably registered on the ledger by another user.'
       });
     }
-    res.json({ isDuplicate: false, message: 'Cryptographically unique' });
+
+    res.json({
+      isDuplicate: false,
+      message: 'Cryptographically and perceptually unique',
+      contentHash,
+      perceptualHash,
+      perceptualHashReversed
+    });
   } catch (err) {
+    console.error('Error in check-duplicate:', err);
     res.status(500).json({ error: err.message });
   }
 });

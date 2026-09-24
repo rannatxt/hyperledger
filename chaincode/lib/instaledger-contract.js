@@ -10,7 +10,7 @@ try {
     }
   };
 }
-const { toBuffer, fromBuffer, iteratorToList } = require('./utils');
+const { toBuffer, fromBuffer, iteratorToList, hammingDistance } = require('./utils');
 
 class InstaLedgerContract extends Contract {
   constructor() {
@@ -62,6 +62,7 @@ class InstaLedgerContract extends Contract {
     }
 
     // Genesis Posts with simulated IPFS CIDs
+    // Genesis Posts with simulated IPFS CIDs and 64-bit perceptual hashes
     const defaultPosts = [
       {
         id: 'post_genesis_01',
@@ -69,6 +70,8 @@ class InstaLedgerContract extends Contract {
         authorUsername: 'ranna',
         authorAvatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80',
         contentHash: 'bafybeigdyrzt5sfp7udm7hu76uh7y26nf3efuylqabf3oclgtqy55fbzdi',
+        perceptualHash: '007f007f00ff01ff',
+        perceptualHashReversed: 'fe00fe00ff00ff80',
         mediaUrl: 'https://images.unsplash.com/photo-1639762681485-074b7f938ba0?w=800&auto=format&fit=crop&q=80',
         caption: 'Genesis block mined on our local Hyperledger Fabric channel! All metadata and interactions are permanently recorded. #Web3 #Hyperledger #Decentralized',
         timestamp: '2026-09-18T14:30:00.000Z',
@@ -81,6 +84,8 @@ class InstaLedgerContract extends Contract {
         authorUsername: 'elena_crypto',
         authorAvatar: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=150&auto=format&fit=crop&q=80',
         contentHash: 'bafybeihdwdcefgh4dqkjv67uzcmw7ojee6xedzdetojuzjevtenxquvyku',
+        perceptualHash: '01800ff01ff83ffc',
+        perceptualHashReversed: '3ffc0ff01ff80180',
         mediaUrl: 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=800&auto=format&fit=crop&q=80',
         caption: 'Exploring immutable digital identity with composite keys on Fabric. Clean dark mode aesthetics make decentralization feel native ✨',
         timestamp: '2026-09-19T09:15:00.000Z',
@@ -93,6 +98,8 @@ class InstaLedgerContract extends Contract {
         authorUsername: 'marcus_art',
         authorAvatar: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150&auto=format&fit=crop&q=80',
         contentHash: 'bafybeibml5fanx2qipldt7n76l7l2y77jygz7z3y6y5z4k7p4w6y4i5v5y',
+        perceptualHash: '5a5a5a5aa5a5a5a5',
+        perceptualHashReversed: 'a5a5a5a55a5a5a5a',
         mediaUrl: 'https://images.unsplash.com/photo-1579783900882-c0d3dad7b119?w=800&auto=format&fit=crop&q=80',
         caption: 'Latest generative render pinned to IPFS and signed by my cryptographic identity. Pure mathematical beauty. 🪐',
         timestamp: '2026-09-20T18:45:00.000Z',
@@ -105,6 +112,9 @@ class InstaLedgerContract extends Contract {
       const record = { docType: 'post', ...post };
       await ctx.stub.putState(`Post~${post.id}`, toBuffer(record));
       await ctx.stub.putState(`ContentHash~${post.contentHash.trim().toLowerCase()}`, toBuffer({ postId: post.id, authorId: post.authorId, timestamp: post.timestamp }));
+      if (post.perceptualHash) {
+        await ctx.stub.putState(`PerceptualHash~${post.perceptualHash.trim().toLowerCase()}`, toBuffer({ postId: post.id, authorId: post.authorId, timestamp: post.timestamp }));
+      }
     }
 
     // Default follows
@@ -234,7 +244,7 @@ class InstaLedgerContract extends Contract {
   // POST MANAGEMENT
   // ==========================================
 
-  async createPost(ctx, postId, authorId, contentHash, caption, mediaUrl) {
+  async createPost(ctx, postId, authorId, contentHash, caption, mediaUrl, perceptualHash, perceptualHashReversed) {
     if (!postId || !authorId || !contentHash) {
       throw new Error('PostId, authorId, and contentHash are required');
     }
@@ -245,10 +255,44 @@ class InstaLedgerContract extends Contract {
     }
     const author = fromBuffer(authorBytes);
 
-    const contentHashKey = `ContentHash~${contentHash.trim().toLowerCase()}`;
+    const normContentHash = contentHash.trim().toLowerCase();
+    const contentHashKey = `ContentHash~${normContentHash}`;
     const existingHash = await ctx.stub.getState(contentHashKey);
     if (existingHash && existingHash.length > 0) {
-      throw new Error('Tamper-proof error: This exact photo has already been immutably recorded on the ledger.');
+      throw new Error('Blockchain Security Alert: This image (or a heavily similar variant) has already been immutably registered on the ledger by another user.');
+    }
+
+    const pNorm = perceptualHash ? perceptualHash.trim().toLowerCase() : null;
+    const pRevNorm = perceptualHashReversed ? perceptualHashReversed.trim().toLowerCase() : null;
+    const DISTANCE_THRESHOLD = 10;
+
+    // Check perceptual hash and exact hash across all world state posts
+    const iterator = await ctx.stub.getStateByRange('Post~', 'Post~\uffff');
+    const allPosts = await iteratorToList(iterator);
+
+    for (const item of allPosts) {
+      const post = item.record;
+      if (!post) continue;
+
+      // Exact content hash match check
+      if (post.contentHash && post.contentHash.trim().toLowerCase() === normContentHash) {
+        throw new Error('Blockchain Security Alert: This image (or a heavily similar variant) has already been immutably registered on the ledger by another user.');
+      }
+
+      // Perceptual similarity check (including horizontal reversal / mirror checks)
+      if (pNorm && post.perceptualHash) {
+        const existingP = post.perceptualHash.trim().toLowerCase();
+        const existingPRev = post.perceptualHashReversed ? post.perceptualHashReversed.trim().toLowerCase() : null;
+
+        const distNormal = hammingDistance(pNorm, existingP);
+        const distRevTarget = pRevNorm ? hammingDistance(pRevNorm, existingP) : 64;
+        const distRevExisting = existingPRev ? hammingDistance(pNorm, existingPRev) : 64;
+
+        const minDistance = Math.min(distNormal, distRevTarget, distRevExisting);
+        if (minDistance <= DISTANCE_THRESHOLD) {
+          throw new Error('Blockchain Security Alert: This image (or a heavily similar variant) has already been immutably registered on the ledger by another user.');
+        }
+      }
     }
 
     const postKey = `Post~${postId}`;
@@ -263,7 +307,9 @@ class InstaLedgerContract extends Contract {
       authorId: author.id,
       authorUsername: author.username,
       authorAvatar: author.avatarUrl,
-      contentHash: contentHash.trim().toLowerCase(),
+      contentHash: normContentHash,
+      perceptualHash: pNorm || '',
+      perceptualHashReversed: pRevNorm || '',
       mediaUrl: mediaUrl || '',
       caption: caption || '',
       timestamp: new Date().toISOString(),
@@ -273,11 +319,85 @@ class InstaLedgerContract extends Contract {
 
     await ctx.stub.putState(postKey, toBuffer(newPost));
     await ctx.stub.putState(contentHashKey, toBuffer({ postId, authorId, timestamp: newPost.timestamp }));
+    if (pNorm) {
+      await ctx.stub.putState(`PerceptualHash~${pNorm}`, toBuffer({ postId, authorId, timestamp: newPost.timestamp }));
+    }
     // Index post under author for fast retrieval
     const authorPostIndex = ctx.stub.createCompositeKey('AuthorPost', [authorId, postId]);
     await ctx.stub.putState(authorPostIndex, toBuffer({ postId, timestamp: newPost.timestamp }));
 
     return JSON.stringify(newPost);
+  }
+
+  /**
+   * Evaluate whether an image hash or perceptual hash is already registered
+   */
+  async checkDuplicateImage(ctx, contentHash, perceptualHash, perceptualHashReversed) {
+    const normContentHash = contentHash ? contentHash.trim().toLowerCase() : null;
+    const pNorm = perceptualHash ? perceptualHash.trim().toLowerCase() : null;
+    const pRevNorm = perceptualHashReversed ? perceptualHashReversed.trim().toLowerCase() : null;
+    const DISTANCE_THRESHOLD = 10;
+
+    if (normContentHash) {
+      const existingHash = await ctx.stub.getState(`ContentHash~${normContentHash}`);
+      if (existingHash && existingHash.length > 0) {
+        return JSON.stringify({
+          isDuplicate: true,
+          matchType: 'exact',
+          distance: 0,
+          similarity: 1.0,
+          error: 'Blockchain Security Alert: This image (or a heavily similar variant) has already been immutably registered on the ledger by another user.'
+        });
+      }
+    }
+
+    if (normContentHash || pNorm) {
+      const iterator = await ctx.stub.getStateByRange('Post~', 'Post~\uffff');
+      const allPosts = await iteratorToList(iterator);
+
+      for (const item of allPosts) {
+        const post = item.record;
+        if (!post) continue;
+
+        if (normContentHash && post.contentHash && post.contentHash.trim().toLowerCase() === normContentHash) {
+          return JSON.stringify({
+            isDuplicate: true,
+            matchType: 'exact',
+            distance: 0,
+            similarity: 1.0,
+            existingPost: post,
+            error: 'Blockchain Security Alert: This image (or a heavily similar variant) has already been immutably registered on the ledger by another user.'
+          });
+        }
+
+        if (pNorm && post.perceptualHash) {
+          const existingP = post.perceptualHash.trim().toLowerCase();
+          const existingPRev = post.perceptualHashReversed ? post.perceptualHashReversed.trim().toLowerCase() : null;
+
+          const distNormal = hammingDistance(pNorm, existingP);
+          const distRevTarget = pRevNorm ? hammingDistance(pRevNorm, existingP) : 64;
+          const distRevExisting = existingPRev ? hammingDistance(pNorm, existingPRev) : 64;
+
+          const minDistance = Math.min(distNormal, distRevTarget, distRevExisting);
+          if (minDistance <= DISTANCE_THRESHOLD) {
+            const isReversed = minDistance === distRevTarget || minDistance === distRevExisting;
+            return JSON.stringify({
+              isDuplicate: true,
+              matchType: isReversed ? 'reversed' : 'perceptual',
+              distance: minDistance,
+              similarity: Math.max(0, 1 - (minDistance / 64)),
+              existingPost: post,
+              error: 'Blockchain Security Alert: This image (or a heavily similar variant) has already been immutably registered on the ledger by another user.'
+            });
+          }
+        }
+      }
+    }
+
+    return JSON.stringify({
+      isDuplicate: false,
+      message: 'Cryptographically and perceptually unique'
+    });
   }
 
   async getPost(ctx, postId) {

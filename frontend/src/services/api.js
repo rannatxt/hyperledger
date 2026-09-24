@@ -21,12 +21,26 @@ export const api = {
   createPost: (formData) =>
     fetch(`${BASE}/api/posts`, { method: 'POST', body: formData }).then(json),
 
-  checkDuplicate: (contentHash) =>
-    fetch(`${BASE}/api/posts/check-duplicate`, {
+  checkDuplicate: (payload) => {
+    if (typeof payload === 'string') {
+      return fetch(`${BASE}/api/posts/check-duplicate`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ contentHash: payload }),
+      }).then(res => res.json());
+    }
+    if (payload instanceof FormData) {
+      return fetch(`${BASE}/api/posts/check-duplicate`, {
+        method: 'POST',
+        body: payload,
+      }).then(res => res.json());
+    }
+    return fetch(`${BASE}/api/posts/check-duplicate`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ contentHash }),
-    }).then(res => res.json()),
+      body: JSON.stringify(payload),
+    }).then(res => res.json());
+  },
 
   toggleLike: (postId, userId) =>
     fetch(`${BASE}/api/interactions/like`, {

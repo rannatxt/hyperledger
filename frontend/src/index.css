@@ -4,12 +4,24 @@
 
 :root {
   color-scheme: dark;
-  --font-ios: -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", system-ui, sans-serif;
+  --font-ios: -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", "Helvetica Neue", sans-serif;
+  --ios-system-blue: #007aff;
+  --ios-system-green: #34c759;
+  --ios-system-red: #ff3b30;
+  --ios-system-orange: #ff9500;
+  --ios-system-card: #1c1c1e;
+  --ios-system-elevated: #2c2c2e;
 }
 
-* { box-sizing: border-box; }
+* {
+  box-sizing: border-box;
+  -webkit-tap-highlight-color: transparent;
+}
 
-html { background: #000; }
+html {
+  background: #000;
+  font-family: var(--font-ios);
+}
 
 body {
   font-family: var(--font-ios);
@@ -19,23 +31,53 @@ body {
   -moz-osx-font-smoothing: grayscale;
   overscroll-behavior: none;
   user-select: none;
+  letter-spacing: -0.011em;
 }
 
 /* ── Scrollbar suppression ── */
 .no-scrollbar::-webkit-scrollbar { display: none; }
 .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
 
-/* ── Frosted Acrylic Bottom Nav ── */
+/* ── Hyper-Realistic iOS 18 Frosted Glass ── */
 .ios-glass {
-  background: rgba(10, 10, 10, 0.82);
-  backdrop-filter: blur(28px) saturate(200%);
-  -webkit-backdrop-filter: blur(28px) saturate(200%);
-  border-top: 1px solid rgba(255,255,255,0.07);
+  background: rgba(18, 18, 18, 0.78);
+  backdrop-filter: blur(28px) saturate(190%);
+  -webkit-backdrop-filter: blur(28px) saturate(190%);
+  border-top: 0.5px solid rgba(255, 255, 255, 0.12);
+}
+
+.ios-glass-nav {
+  background: rgba(12, 12, 12, 0.82);
+  backdrop-filter: blur(28px) saturate(190%);
+  -webkit-backdrop-filter: blur(28px) saturate(190%);
+  border-bottom: 0.5px solid rgba(255, 255, 255, 0.1);
+}
+
+.ios-card {
+  background: #1c1c1e;
+  border: 0.5px solid rgba(255, 255, 255, 0.08);
+  border-radius: 20px;
+}
+
+.ios-card-interactive {
+  background: #1c1c1e;
+  border: 0.5px solid rgba(255, 255, 255, 0.09);
+  border-radius: 20px;
+  transition: transform 0.2s cubic-bezier(0.2, 0.8, 0.2, 1), background-color 0.15s ease;
+}
+
+.ios-card-interactive:active {
+  transform: scale(0.97);
+  background: #252528;
 }
 
 /* ── Story gradient ring (Instagram) ── */
 .story-ring {
   background: linear-gradient(45deg, #f09433 0%, #e6683c 25%, #dc2743 50%, #cc2366 75%, #bc1888 100%);
+}
+
+.story-ring-active {
+  background: linear-gradient(135deg, #007aff 0%, #5856d6 50%, #af52de 100%);
 }
 
 /* ── Instagram photo filters ── */
@@ -47,6 +89,55 @@ body {
 .f-noir      { filter: grayscale(1) contrast(1.4) brightness(0.9); }
 .f-vivid     { filter: saturate(1.6) contrast(1.1); }
 
-/* ── Utility ── */
-.ios-sheet { border-radius: 32px 32px 0 0; }
-.squircle  { border-radius: 22px; }
+/* ── Native iOS Sheet & Squircle Geometry ── */
+.ios-sheet {
+  border-top-left-radius: 36px;
+  border-top-right-radius: 36px;
+  border-top: 0.5px solid rgba(255, 255, 255, 0.16);
+  box-shadow: 0 -12px 40px rgba(0, 0, 0, 0.85);
+}
+
+.ios-pill {
+  border-radius: 9999px;
+}
+
+.squircle {
+  border-radius: 22px;
+}
+
+/* ── iOS Haptic Button Micro-Interactions ── */
+.ios-press {
+  transition: transform 0.15s cubic-bezier(0.25, 1, 0.5, 1), opacity 0.15s ease;
+}
+.ios-press:active {
+  transform: scale(0.93);
+  opacity: 0.85;
+}
+
+.ios-btn-blue {
+  background: #007aff;
+  color: #fff;
+  font-weight: 600;
+  border-radius: 14px;
+  transition: transform 0.15s ease, background-color 0.15s ease;
+}
+.ios-btn-blue:active {
+  transform: scale(0.96);
+  background: #0066d6;
+}
+
+/* ── Security Alert Pulse ── */
+@keyframes securityGlow {
+  0%, 100% {
+    box-shadow: 0 0 15px rgba(255, 59, 48, 0.35);
+    border-color: rgba(255, 59, 48, 0.6);
+  }
+  50% {
+    box-shadow: 0 0 25px rgba(255, 59, 48, 0.65);
+    border-color: rgba(255, 59, 48, 0.95);
+  }
+}
+
+.security-alert-glow {
+  animation: securityGlow 1.8s ease-in-out infinite;
+}

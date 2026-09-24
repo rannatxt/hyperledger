@@ -61,5 +61,50 @@
     "size": 26841,
     "timestamp": "2026-09-22T07:36:25.773Z",
     "pinned": true
+  },
+  "bafkafkreidt6o7dghnhgff6h7msscixp4dvpvajl2qiby4bvjo3vaxz45sn4e": {
+    "cid": "bafkafkreidt6o7dghnhgff6h7msscixp4dvpvajl2qiby4bvjo3vaxz45sn4e",
+    "filename": "bafkafkreidt6o7dghnhgff6h7msscixp4dvpvajl2qiby4bvjo3vaxz45sn4e.jpeg",
+    "originalName": "ranna.jpeg",
+    "mimeType": "image/jpeg",
+    "size": 19309,
+    "timestamp": "2026-09-24T12:17:38.404Z",
+    "pinned": true
+  },
+  "bafkafkreigniyrxcj7qfir7ii7epmup5m54ug3zz2dp44ww3udhpbru5cw62e": {
+    "cid": "bafkafkreigniyrxcj7qfir7ii7epmup5m54ug3zz2dp44ww3udhpbru5cw62e",
+    "filename": "bafkafkreigniyrxcj7qfir7ii7epmup5m54ug3zz2dp44ww3udhpbru5cw62e.jpeg",
+    "originalName": "r1.jpeg",
+    "mimeType": "image/jpeg",
+    "size": 166086,
+    "timestamp": "2026-09-24T12:24:02.832Z",
+    "pinned": true
+  },
+  "bafkafkreiaf4solu5xw2ewjkhr4ne466bcvni27xfjxj7mdpbjm47ylc4wtjq": {
+    "cid": "bafkafkreiaf4solu5xw2ewjkhr4ne466bcvni27xfjxj7mdpbjm47ylc4wtjq",
+    "filename": "bafkafkreiaf4solu5xw2ewjkhr4ne466bcvni27xfjxj7mdpbjm47ylc4wtjq.jfif",
+    "originalName": "Porsche 911 Carrera parked at side of road with palm trees behind.jfif",
+    "mimeType": "image/jpeg",
+    "size": 1656145,
+    "timestamp": "2026-09-24T12:30:52.505Z",
+    "pinned": true
+  },
+  "bafkafkreifv2utxk7lgfpbcacdtcpnntgbqqvj42wxdtqjh2scdaqiapqdhzq": {
+    "cid": "bafkafkreifv2utxk7lgfpbcacdtcpnntgbqqvj42wxdtqjh2scdaqiapqdhzq",
+    "filename": "bafkafkreifv2utxk7lgfpbcacdtcpnntgbqqvj42wxdtqjh2scdaqiapqdhzq.png",
+    "originalName": "fifa.png",
+    "mimeType": "image/png",
+    "size": 829458,
+    "timestamp": "2026-09-24T12:31:32.725Z",
+    "pinned": true
+  },
+  "bafkafkreibgkn4k72af34vvrfco76sgjlwdxin4su2st7s25w6p3m7yumfzxq": {
+    "cid": "bafkafkreibgkn4k72af34vvrfco76sgjlwdxin4su2st7s25w6p3m7yumfzxq",
+    "filename": "bafkafkreibgkn4k72af34vvrfco76sgjlwdxin4su2st7s25w6p3m7yumfzxq.mp4",
+    "originalName": "portofolio.mp4",
+    "mimeType": "video/mp4",
+    "size": 23826494,
+    "timestamp": "2026-09-24T12:41:21.850Z",
+    "pinned": true
   }
 }

@@ -222,4 +222,81 @@ test('InstaLedgerContract test suite', async (t) => {
     const post = JSON.parse(await contract.getPost(ctx, 'post_frank_1'));
     assert.equal(post.commentCount, 2);
   });
+
+  await t.test('global tamper-proof duplicate prevention (exact, perceptual & reversed)', async () => {
+    const ctx = createMockContext();
+    await contract.createProfile(ctx, 'user_photographer', 'photo_pro', 'Pro Photographer', '', '');
+    await contract.createProfile(ctx, 'user_impostor', 'photo_copycat', 'Impostor User', '', '');
+
+    // User A posts original photo
+    const originalPostRes = await contract.createPost(
+      ctx,
+      'post_orig_01',
+      'user_photographer',
+      'hash_crypto_exact_12345',
+      'Original Masterpiece',
+      'https://example.com/original.jpg',
+      '007f007f00ff01ff', // pHash
+      'fe00fe00ff00ff80'  // pHashReversed
+    );
+    assert.ok(originalPostRes);
+
+    // 1. User B attempts exact cryptographic duplicate
+    await assert.rejects(async () => {
+      await contract.createPost(
+        ctx,
+        'post_dup_01',
+        'user_impostor',
+        'hash_crypto_exact_12345',
+        'Trying to post exact same image',
+        'https://example.com/duplicate.jpg'
+      );
+    }, /Blockchain Security Alert: This image \(or a heavily similar variant\) has already been immutably registered on the ledger by another user\./);
+
+    // 2. User B attempts horizontally reversed / mirror duplicate (different cryptographic hash, but reversed pHash matches)
+    await assert.rejects(async () => {
+      await contract.createPost(
+        ctx,
+        'post_dup_02',
+        'user_impostor',
+        'different_sha256_for_reversed_image',
+        'Trying to post flipped/reversed image',
+        'https://example.com/reversed.jpg',
+        'fe00fe00ff00ff80', // matches reversed pHash of post_orig_01
+        '007f007f00ff01ff'
+      );
+    }, /Blockchain Security Alert: This image \(or a heavily similar variant\) has already been immutably registered on the ledger by another user\./);
+
+    // 3. User B attempts minor edited / cropped variant (Hamming distance = 2, within threshold 10)
+    await assert.rejects(async () => {
+      await contract.createPost(
+        ctx,
+        'post_dup_03',
+        'user_impostor',
+        'different_sha256_for_cropped_image',
+        'Trying to post cropped/edited image',
+        'https://example.com/cropped.jpg',
+        '007f007f00ff01ef', // only 2 bits different from 007f007f00ff01ff
+        'fe00fe00ff00ff80'
+      );
+    }, /Blockchain Security Alert: This image \(or a heavily similar variant\) has already been immutably registered on the ledger by another user\./);
+
+    // 4. Verify checkDuplicateImage query method
+    const dupCheck = JSON.parse(await contract.checkDuplicateImage(ctx, 'hash_crypto_exact_12345', '007f007f00ff01ef'));
+    assert.equal(dupCheck.isDuplicate, true);
+    assert.match(dupCheck.error, /Blockchain Security Alert/);
+
+    // 5. Completely unique photo succeeds
+    const uniqueRes = await contract.createPost(
+      ctx,
+      'post_unique_01',
+      'user_impostor',
+      'brand_new_unique_crypto_hash',
+      'Legitimate new photo',
+      'https://example.com/new.jpg',
+      'ffff0000ffff0000', // distance = 32 out of 64
+      '0000ffff0000ffff'
+    );
+    assert.ok(uniqueRes);
+  });
 });

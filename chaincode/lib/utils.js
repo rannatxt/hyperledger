@@ -46,8 +46,26 @@ async function iteratorToList(iterator) {
   return allResults;
 }
 
+function hammingDistance(hexA, hexB) {
+  if (!hexA || !hexB) return 64;
+  const a = hexA.trim().toLowerCase();
+  const b = hexB.trim().toLowerCase();
+  const len = Math.min(a.length, b.length);
+  let dist = 0;
+  for (let i = 0; i < len; i++) {
+    let xor = parseInt(a[i], 16) ^ parseInt(b[i], 16);
+    while (xor > 0) {
+      dist += (xor & 1);
+      xor >>= 1;
+    }
+  }
+  dist += Math.abs(a.length - b.length) * 4;
+  return dist;
+}
+
 module.exports = {
   toBuffer,
   fromBuffer,
   iteratorToList,
+  hammingDistance,
 };
