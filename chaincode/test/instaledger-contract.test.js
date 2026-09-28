@@ -94,8 +94,8 @@ test('InstaLedgerContract test suite', async (t) => {
     assert.equal(profile.followerCount, 3);
 
     const feed = JSON.parse(await contract.getFeed(ctx));
-    assert.equal(feed.length, 3);
-    assert.equal(feed[0].id, 'post_genesis_03'); // newest first
+    assert.equal(feed.length, 4);
+    assert.equal(feed[0].id, 'post_genesis_04'); // newest first (video post)
   });
 
   await t.test('createProfile and getProfile', async () => {
@@ -251,7 +251,7 @@ test('InstaLedgerContract test suite', async (t) => {
         'Trying to post exact same image',
         'https://example.com/duplicate.jpg'
       );
-    }, /Blockchain Security Alert: This image \(or a heavily similar variant\) has already been immutably registered on the ledger by another user\./);
+    }, /Tamper-Proof Blockchain Security: This media file \(or a cropped\/trimmed variant\) has already been registered on the ledger\./);
 
     // 2. User B attempts horizontally reversed / mirror duplicate (different cryptographic hash, but reversed pHash matches)
     await assert.rejects(async () => {
@@ -265,7 +265,7 @@ test('InstaLedgerContract test suite', async (t) => {
         'fe00fe00ff00ff80', // matches reversed pHash of post_orig_01
         '007f007f00ff01ff'
       );
-    }, /Blockchain Security Alert: This image \(or a heavily similar variant\) has already been immutably registered on the ledger by another user\./);
+    }, /Tamper-Proof Blockchain Security: This media file \(or a cropped\/trimmed variant\) has already been registered on the ledger\./);
 
     // 3. User B attempts minor edited / cropped variant (Hamming distance = 2, within threshold 10)
     await assert.rejects(async () => {
@@ -279,14 +279,45 @@ test('InstaLedgerContract test suite', async (t) => {
         '007f007f00ff01ef', // only 2 bits different from 007f007f00ff01ff
         'fe00fe00ff00ff80'
       );
-    }, /Blockchain Security Alert: This image \(or a heavily similar variant\) has already been immutably registered on the ledger by another user\./);
+    }, /Tamper-Proof Blockchain Security: This media file \(or a cropped\/trimmed variant\) has already been registered on the ledger\./);
 
-    // 4. Verify checkDuplicateImage query method
-    const dupCheck = JSON.parse(await contract.checkDuplicateImage(ctx, 'hash_crypto_exact_12345', '007f007f00ff01ef'));
+    // 4. Verify checkDuplicateMedia query method
+    const dupCheck = JSON.parse(await contract.checkDuplicateMedia(ctx, 'hash_crypto_exact_12345', '007f007f00ff01ef'));
     assert.equal(dupCheck.isDuplicate, true);
-    assert.match(dupCheck.error, /Blockchain Security Alert/);
+    assert.match(dupCheck.error, /Tamper-Proof Blockchain Security/);
 
-    // 5. Completely unique photo succeeds
+    // 5. Video Post & Trimmed Variant Duplicate Test
+    const vidPostRes = await contract.createPost(
+      ctx,
+      'post_vid_orig',
+      'user_photographer',
+      'hash_vid_orig_123',
+      'Original Video Reel',
+      'https://example.com/vid.mp4',
+      '0011223344556677',
+      '7766554433221100',
+      'video',
+      'VF1:0011223344556677,1122334455667788,2233445566778899,33445566778899aa|7766554433221100,8877665544332211,9988776655443322,aa99887766554433'
+    );
+    assert.ok(vidPostRes);
+
+    // Trimmed video variant must be rejected
+    await assert.rejects(async () => {
+      await contract.createPost(
+        ctx,
+        'post_vid_pirate',
+        'user_impostor',
+        'hash_vid_trimmed_different_hash',
+        'Trimmed video pirate copy',
+        'https://example.com/trimmed.mp4',
+        '1122334455667788',
+        '8877665544332211',
+        'video',
+        'VF1:1122334455667788,2233445566778899|8877665544332211,9988776655443322'
+      );
+    }, /Tamper-Proof Blockchain Security: This media file \(or a cropped\/trimmed variant\) has already been registered on the ledger\./);
+
+    // 6. Completely unique photo succeeds
     const uniqueRes = await contract.createPost(
       ctx,
       'post_unique_01',

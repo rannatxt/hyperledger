@@ -1,21 +1,26 @@
 import { useState, useEffect } from 'react';
-import { RefreshCw } from 'lucide-react';
+import { RefreshCw, Monitor, Layers } from 'lucide-react';
 
-import StatusBar       from './components/ios/StatusBar';
-import NavHeader       from './components/ios/NavHeader';
-import StoriesBar      from './components/ios/StoriesBar';
-import PostCard        from './components/ios/PostCard';
-import BottomTabBar    from './components/ios/BottomTabBar';
-import UploadSheet     from './components/ios/UploadSheet';
-import LedgerModal     from './components/ios/LedgerModal';
-import CommentsSheet   from './components/ios/CommentsSheet';
-import ProfileView     from './components/ios/ProfileView';
-import ExploreView     from './components/ios/ExploreView';
+import DesktopTitleBar      from './components/desktop/DesktopTitleBar';
+import DesktopSidebar       from './components/desktop/DesktopSidebar';
+import DesktopInspectorPane from './components/desktop/DesktopInspectorPane';
+import DesktopPostCard      from './components/desktop/DesktopPostCard';
+import DesktopUploadModal   from './components/desktop/DesktopUploadModal';
+
+import StatusBar            from './components/ios/StatusBar';
+import NavHeader            from './components/ios/NavHeader';
+import StoriesBar           from './components/ios/StoriesBar';
+import BottomTabBar         from './components/ios/BottomTabBar';
+import LedgerModal          from './components/ios/LedgerModal';
+import CommentsSheet        from './components/ios/CommentsSheet';
+import ProfileView          from './components/ios/ProfileView';
+import ExploreView          from './components/ios/ExploreView';
 
 import { api } from './services/api';
 
 export default function App() {
   const [tab,           setTab]           = useState('feed');
+  const [viewMode,      setViewMode]      = useState('desktop'); // 'desktop' | 'compact'
   const [posts,         setPosts]         = useState([]);
   const [users,         setUsers]         = useState([]);
   const [currentUser,   setCurrentUser]   = useState(null);
@@ -62,7 +67,6 @@ export default function App() {
   // ── Like toggle ──
   const handleLike = async (postId) => {
     if (!currentUser) return;
-    // Optimistic update
     setPosts(prev => prev.map(p => {
       if (p.id !== postId) return p;
       const liked = !p.isLikedByViewer;
@@ -89,108 +93,192 @@ export default function App() {
   };
 
   return (
-    <div className="min-h-screen bg-black flex justify-center select-none">
-      {/* iPhone device frame — max 470px */}
-      <div className="w-full max-w-[470px] min-h-screen bg-black border-x border-white/[0.07] flex flex-col relative overflow-hidden shadow-[0_0_60px_rgba(0,122,255,0.06)]">
-
-        {/* ── iOS Status Bar ── */}
-        <StatusBar onDynamicIslandClick={() => setLedgerOpen(true)} />
-
-        {/* ── Navigation Header ── */}
-        <NavHeader
-          onOpenLedger={() => setLedgerOpen(true)}
-          onOpenActivity={() => setLedgerOpen(true)}
-          unread={2}
-        />
-
-        {/* ── Main Scroll Area ── */}
-        <main className="flex-1 overflow-y-auto no-scrollbar">
-
-          {/* FEED TAB */}
-          {tab === 'feed' && (
-            <div className="pb-28">
-              <StoriesBar
-                currentUser={currentUser}
-                onOpenUpload={() => setUploadOpen(true)}
-              />
-
-              {/* Ledger sync row */}
-              <div className="flex items-center justify-between px-3 py-2 text-[11px] text-ios-gray1 font-mono border-b border-white/[0.05]">
-                <span className="flex items-center gap-1.5">
-                  <span className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse-green" />
-                  Fabric channel: <strong className="text-white ml-0.5">mychannel</strong>
-                </span>
-                <button onClick={() => refreshFeed()} className="flex items-center gap-1 hover:text-white transition-colors">
-                  <RefreshCw className={`w-3 h-3 ${loadingFeed ? 'animate-spin text-ios-blue' : ''}`} />
-                  Sync
-                </button>
-              </div>
-
-              {/* Posts */}
-              {loadingFeed && posts.length === 0 ? (
-                <div className="flex flex-col items-center justify-center py-24 text-ios-gray1 text-xs gap-2">
-                  <div className="w-6 h-6 border-2 border-ios-blue border-t-transparent rounded-full animate-spin" />
-                  Synchronising Hyperledger Fabric ledger…
-                </div>
-              ) : posts.length === 0 ? (
-                <p className="py-24 text-center text-xs text-ios-gray1">No blocks committed yet — be the first to mint a post!</p>
-              ) : (
-                posts.map(post => (
-                  <PostCard
-                    key={post.id}
-                    post={post}
-                    currentUser={currentUser}
-                    onLikeToggle={handleLike}
-                    onOpenComments={p => setCommentPost(p)}
-                    onOpenLedger={openLedger}
-                  />
-                ))
-              )}
-            </div>
-          )}
-
-          {/* EXPLORE TAB */}
-          {tab === 'explore' && (
-            <ExploreView posts={posts} onSelectPost={openLedger} />
-          )}
-
-          {/* LEDGER TAB */}
-          {tab === 'ledger' && (
-            <div className="pb-28">
-              <div className="p-4 text-center">
-                <button onClick={() => setLedgerOpen(true)}
-                  className="px-5 py-2.5 bg-ios-blue text-white text-xs font-bold rounded-2xl shadow-lg shadow-blue-500/25 active:scale-95 transition-transform mb-4">
-                  Open Blockchain Inspector
-                </button>
-              </div>
-              <ExploreView posts={posts} onSelectPost={openLedger} />
-            </div>
-          )}
-
-          {/* PROFILE TAB */}
-          {tab === 'profile' && (
-            <ProfileView
-              user={currentUser}
-              allUsers={users}
-              posts={posts}
-              currentUser={currentUser}
-              onSwitchUser={u => { setCurrentUser(u); refreshFeed(u.id); }}
-              onSelectPost={openLedger}
-            />
-          )}
-        </main>
-
-        {/* ── Frosted Acrylic Bottom Navigation ── */}
-        <BottomTabBar
-          active={tab}
-          onTab={setTab}
-          onOpenUpload={() => setUploadOpen(true)}
+    <div className="min-h-screen w-full bg-[#070b14] bg-[radial-gradient(ellipse_80%_80%_at_50%_-20%,rgba(0,122,255,0.15),rgba(255,255,255,0))] flex items-center justify-center p-0 md:p-6 lg:p-8 select-none">
+      {/* ── Native Mac Catalyst / iPadOS Centered Container ── */}
+      <div
+        className={`w-full transition-all duration-300 flex flex-col relative overflow-hidden bg-black/95 backdrop-blur-2xl ${
+          viewMode === 'desktop'
+            ? 'max-w-[1400px] h-screen md:h-[92vh] max-h-[960px] md:rounded-[28px] border border-white/[0.12] shadow-[0_30px_90px_rgba(0,0,0,0.85),0_0_80px_rgba(0,122,255,0.08)]'
+            : 'max-w-[470px] min-h-screen md:min-h-[880px] md:h-[90vh] md:rounded-[40px] border border-white/[0.12] shadow-[0_20px_60px_rgba(0,0,0,0.8)]'
+        }`}
+      >
+        {/* ── Desktop Title Bar (Traffic Lights, Channel, Sync) ── */}
+        <DesktopTitleBar
+          channelName="mychannel"
+          blockHeight={posts.length + 1}
           currentUser={currentUser}
-          blockCount={posts.length + 1}
+          onRefresh={() => refreshFeed()}
+          loadingFeed={loadingFeed}
+          viewMode={viewMode}
+          setViewMode={setViewMode}
+          onOpenLedger={() => setLedgerOpen(true)}
         />
 
-        {/* ── Modals ── */}
-        <UploadSheet
+        {/* ── DESKTOP SPLIT LAYOUT ── */}
+        {viewMode === 'desktop' ? (
+          <div className="flex-1 flex overflow-hidden">
+            {/* Left: Mac Catalyst Sidebar */}
+            <DesktopSidebar
+              activeTab={tab}
+              setActiveTab={setTab}
+              currentUser={currentUser}
+              users={users}
+              onSwitchUser={(u) => { setCurrentUser(u); refreshFeed(u.id); }}
+              onOpenUpload={() => setUploadOpen(true)}
+              onOpenLedger={() => setLedgerOpen(true)}
+              blockCount={posts.length + 1}
+            />
+
+            {/* Center: Main Scroll Area (Feed / Explore / Profile) */}
+            <main className="flex-1 overflow-y-auto no-scrollbar bg-black/60 p-4 lg:p-6 border-r border-white/[0.06]">
+              <div className="max-w-[620px] mx-auto space-y-4">
+                {/* FEED TAB */}
+                {tab === 'feed' && (
+                  <>
+                    <StoriesBar
+                      currentUser={currentUser}
+                      onOpenUpload={() => setUploadOpen(true)}
+                    />
+
+                    {/* Channel Ledger Ticker */}
+                    <div className="flex items-center justify-between px-3 py-2 text-[11px] text-gray-400 font-mono rounded-[14px] bg-[#141416] border border-white/[0.06]">
+                      <span className="flex items-center gap-1.5">
+                        <span className="w-1.5 h-1.5 rounded-full bg-[#34c759] animate-pulse" />
+                        Fabric channel: <strong className="text-white ml-0.5">mychannel</strong>
+                        <span className="text-gray-500">|</span>
+                        <span>State: Org1MSP (Raft Orderer)</span>
+                      </span>
+                      <button
+                        onClick={() => refreshFeed()}
+                        className="flex items-center gap-1 hover:text-white transition-colors"
+                      >
+                        <RefreshCw className={`w-3 h-3 ${loadingFeed ? 'animate-spin text-[#007aff]' : ''}`} />
+                        <span>Sync</span>
+                      </button>
+                    </div>
+
+                    {/* Posts List */}
+                    {loadingFeed && posts.length === 0 ? (
+                      <div className="flex flex-col items-center justify-center py-24 text-gray-400 text-xs gap-2">
+                        <div className="w-6 h-6 border-2 border-[#007aff] border-t-transparent rounded-full animate-spin" />
+                        Synchronising Hyperledger Fabric ledger…
+                      </div>
+                    ) : posts.length === 0 ? (
+                      <div className="py-24 text-center text-xs text-gray-400">
+                        No blocks committed yet — be the first to mint a post!
+                      </div>
+                    ) : (
+                      posts.map(post => (
+                        <DesktopPostCard
+                          key={post.id}
+                          post={post}
+                          currentUser={currentUser}
+                          onLikeToggle={handleLike}
+                          onOpenComments={p => setCommentPost(p)}
+                          onOpenLedger={openLedger}
+                        />
+                      ))
+                    )}
+                  </>
+                )}
+
+                {/* EXPLORE TAB */}
+                {tab === 'explore' && (
+                  <ExploreView posts={posts} onSelectPost={openLedger} />
+                )}
+
+                {/* PROFILE TAB */}
+                {tab === 'profile' && (
+                  <ProfileView
+                    user={currentUser}
+                    allUsers={users}
+                    posts={posts}
+                    currentUser={currentUser}
+                    onSwitchUser={u => { setCurrentUser(u); refreshFeed(u.id); }}
+                    onSelectPost={openLedger}
+                  />
+                )}
+              </div>
+            </main>
+
+            {/* Right: Desktop Inspector Widget Pane */}
+            <DesktopInspectorPane
+              currentUser={currentUser}
+              users={users}
+              posts={posts}
+              onSelectPost={openLedger}
+              onOpenLedger={() => setLedgerOpen(true)}
+              onSwitchUser={(u) => { setCurrentUser(u); refreshFeed(u.id); }}
+            />
+          </div>
+        ) : (
+          /* ── COMPACT IPAD / IPHONE VIEW ── */
+          <div className="flex-1 flex flex-col overflow-hidden relative">
+            <StatusBar onDynamicIslandClick={() => setLedgerOpen(true)} />
+            <NavHeader
+              onOpenLedger={() => setLedgerOpen(true)}
+              onOpenActivity={() => setLedgerOpen(true)}
+              unread={2}
+            />
+
+            <main className="flex-1 overflow-y-auto no-scrollbar pb-24">
+              {tab === 'feed' && (
+                <div>
+                  <StoriesBar
+                    currentUser={currentUser}
+                    onOpenUpload={() => setUploadOpen(true)}
+                  />
+
+                  <div className="flex items-center justify-between px-3 py-2 text-[11px] text-gray-400 font-mono border-b border-white/[0.05]">
+                    <span className="flex items-center gap-1.5">
+                      <span className="w-1.5 h-1.5 rounded-full bg-[#34c759] animate-pulse" />
+                      Fabric channel: <strong className="text-white ml-0.5">mychannel</strong>
+                    </span>
+                    <button onClick={() => refreshFeed()} className="flex items-center gap-1 hover:text-white transition-colors">
+                      <RefreshCw className={`w-3 h-3 ${loadingFeed ? 'animate-spin text-[#007aff]' : ''}`} />
+                      Sync
+                    </button>
+                  </div>
+
+                  {posts.map(post => (
+                    <DesktopPostCard
+                      key={post.id}
+                      post={post}
+                      currentUser={currentUser}
+                      onLikeToggle={handleLike}
+                      onOpenComments={p => setCommentPost(p)}
+                      onOpenLedger={openLedger}
+                    />
+                  ))}
+                </div>
+              )}
+
+              {tab === 'explore' && <ExploreView posts={posts} onSelectPost={openLedger} />}
+
+              {tab === 'profile' && (
+                <ProfileView
+                  user={currentUser}
+                  allUsers={users}
+                  posts={posts}
+                  currentUser={currentUser}
+                  onSwitchUser={u => { setCurrentUser(u); refreshFeed(u.id); }}
+                  onSelectPost={openLedger}
+                />
+              )}
+            </main>
+
+            <BottomTabBar
+              active={tab}
+              onTab={setTab}
+              onOpenUpload={() => setUploadOpen(true)}
+              currentUser={currentUser}
+              blockCount={posts.length + 1}
+            />
+          </div>
+        )}
+
+        {/* ── Dialog Modals ── */}
+        <DesktopUploadModal
           isOpen={uploadOpen}
           onClose={() => setUploadOpen(false)}
           currentUser={currentUser}

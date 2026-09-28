@@ -10,7 +10,16 @@ try {
     }
   };
 }
-const { toBuffer, fromBuffer, iteratorToList, hammingDistance } = require('./utils');
+const {
+  toBuffer,
+  fromBuffer,
+  iteratorToList,
+  hammingDistance,
+  parseVideoSignature,
+  compareVideoSignatures
+} = require('./utils');
+
+const REQUIRED_SECURITY_ALERT = 'Tamper-Proof Blockchain Security: This media file (or a cropped/trimmed variant) has already been registered on the ledger.';
 
 class InstaLedgerContract extends Contract {
   constructor() {
@@ -18,7 +27,7 @@ class InstaLedgerContract extends Contract {
   }
 
   /**
-   * Initialize the ledger with genesis accounts and starter posts.
+   * Initialize the ledger with genesis accounts, starter posts, and a verified video post.
    */
   async initLedger(ctx) {
     const defaultProfiles = [
@@ -57,12 +66,10 @@ class InstaLedgerContract extends Contract {
     for (const profile of defaultProfiles) {
       const record = { docType: 'profile', ...profile };
       await ctx.stub.putState(`Profile~${profile.id}`, toBuffer(record));
-      // Also map username for quick lookup
       await ctx.stub.putState(`Username~${profile.username.toLowerCase()}`, toBuffer({ userId: profile.id }));
     }
 
-    // Genesis Posts with simulated IPFS CIDs
-    // Genesis Posts with simulated IPFS CIDs and 64-bit perceptual hashes
+    // Genesis Posts with simulated IPFS CIDs, 64-bit perceptual hashes, and video frame signatures
     const defaultPosts = [
       {
         id: 'post_genesis_01',
@@ -72,6 +79,8 @@ class InstaLedgerContract extends Contract {
         contentHash: 'bafybeigdyrzt5sfp7udm7hu76uh7y26nf3efuylqabf3oclgtqy55fbzdi',
         perceptualHash: '007f007f00ff01ff',
         perceptualHashReversed: 'fe00fe00ff00ff80',
+        mediaType: 'image',
+        videoFingerprint: '',
         mediaUrl: 'https://images.unsplash.com/photo-1639762681485-074b7f938ba0?w=800&auto=format&fit=crop&q=80',
         caption: 'Genesis block mined on our local Hyperledger Fabric channel! All metadata and interactions are permanently recorded. #Web3 #Hyperledger #Decentralized',
         timestamp: '2026-09-18T14:30:00.000Z',
@@ -86,6 +95,8 @@ class InstaLedgerContract extends Contract {
         contentHash: 'bafybeihdwdcefgh4dqkjv67uzcmw7ojee6xedzdetojuzjevtenxquvyku',
         perceptualHash: '01800ff01ff83ffc',
         perceptualHashReversed: '3ffc0ff01ff80180',
+        mediaType: 'image',
+        videoFingerprint: '',
         mediaUrl: 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=800&auto=format&fit=crop&q=80',
         caption: 'Exploring immutable digital identity with composite keys on Fabric. Clean dark mode aesthetics make decentralization feel native ✨',
         timestamp: '2026-09-19T09:15:00.000Z',
@@ -100,11 +111,29 @@ class InstaLedgerContract extends Contract {
         contentHash: 'bafybeibml5fanx2qipldt7n76l7l2y77jygz7z3y6y5z4k7p4w6y4i5v5y',
         perceptualHash: '5a5a5a5aa5a5a5a5',
         perceptualHashReversed: 'a5a5a5a55a5a5a5a',
+        mediaType: 'image',
+        videoFingerprint: '',
         mediaUrl: 'https://images.unsplash.com/photo-1579783900882-c0d3dad7b119?w=800&auto=format&fit=crop&q=80',
         caption: 'Latest generative render pinned to IPFS and signed by my cryptographic identity. Pure mathematical beauty. 🪐',
         timestamp: '2026-09-20T18:45:00.000Z',
         likeCount: 1,
         commentCount: 0
+      },
+      {
+        id: 'post_genesis_04',
+        authorId: 'user_ranna',
+        authorUsername: 'ranna',
+        authorAvatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80',
+        contentHash: 'bafybeicgq5v4x64h42i7o3l6a24v2q4d3f3f2k4m3l4o2p1q4r3s2t1u4v',
+        perceptualHash: '1122334455667788',
+        perceptualHashReversed: '8877665544332211',
+        mediaType: 'video',
+        videoFingerprint: 'VF1:1122334455667788,1122334455667799,11223344556677aa,11223344556677bb|8877665544332211,9977665544332211,aa77665544332211,bb77665544332211',
+        mediaUrl: 'https://assets.mixkit.co/videos/preview/mixkit-circuit-board-details-in-movement-44026-large.mp4',
+        caption: 'Temporal blockchain video verification live on Hyperledger Fabric ⛓️ Keyframe signatures prevent trim & crop piracy.',
+        timestamp: '2026-09-21T12:00:00.000Z',
+        likeCount: 4,
+        commentCount: 1
       }
     ];
 
@@ -114,6 +143,9 @@ class InstaLedgerContract extends Contract {
       await ctx.stub.putState(`ContentHash~${post.contentHash.trim().toLowerCase()}`, toBuffer({ postId: post.id, authorId: post.authorId, timestamp: post.timestamp }));
       if (post.perceptualHash) {
         await ctx.stub.putState(`PerceptualHash~${post.perceptualHash.trim().toLowerCase()}`, toBuffer({ postId: post.id, authorId: post.authorId, timestamp: post.timestamp }));
+      }
+      if (post.videoFingerprint) {
+        await ctx.stub.putState(`VideoFingerprint~${post.id}`, toBuffer({ postId: post.id, fingerprint: post.videoFingerprint }));
       }
     }
 
@@ -130,6 +162,8 @@ class InstaLedgerContract extends Contract {
     await ctx.stub.putState(ctx.stub.createCompositeKey('Like', ['post_genesis_02', 'user_marcus']), toBuffer({ docType: 'like', postId: 'post_genesis_02', userId: 'user_marcus' }));
     await ctx.stub.putState(ctx.stub.createCompositeKey('Like', ['post_genesis_02', 'user_elena']), toBuffer({ docType: 'like', postId: 'post_genesis_02', userId: 'user_elena' }));
     await ctx.stub.putState(ctx.stub.createCompositeKey('Like', ['post_genesis_03', 'user_elena']), toBuffer({ docType: 'like', postId: 'post_genesis_03', userId: 'user_elena' }));
+    await ctx.stub.putState(ctx.stub.createCompositeKey('Like', ['post_genesis_04', 'user_elena']), toBuffer({ docType: 'like', postId: 'post_genesis_04', userId: 'user_elena' }));
+    await ctx.stub.putState(ctx.stub.createCompositeKey('Like', ['post_genesis_04', 'user_marcus']), toBuffer({ docType: 'like', postId: 'post_genesis_04', userId: 'user_marcus' }));
 
     // Default comments
     const comment1 = {
@@ -241,10 +275,21 @@ class InstaLedgerContract extends Contract {
   }
 
   // ==========================================
-  // POST MANAGEMENT
+  // POST MANAGEMENT & MULTI-MEDIA TAMPER-PROOFING
   // ==========================================
 
-  async createPost(ctx, postId, authorId, contentHash, caption, mediaUrl, perceptualHash, perceptualHashReversed) {
+  async createPost(
+    ctx,
+    postId,
+    authorId,
+    contentHash,
+    caption,
+    mediaUrl,
+    perceptualHash,
+    perceptualHashReversed,
+    mediaType = 'image',
+    videoFingerprint = ''
+  ) {
     if (!postId || !authorId || !contentHash) {
       throw new Error('PostId, authorId, and contentHash are required');
     }
@@ -259,14 +304,15 @@ class InstaLedgerContract extends Contract {
     const contentHashKey = `ContentHash~${normContentHash}`;
     const existingHash = await ctx.stub.getState(contentHashKey);
     if (existingHash && existingHash.length > 0) {
-      throw new Error('Blockchain Security Alert: This image (or a heavily similar variant) has already been immutably registered on the ledger by another user.');
+      throw new Error(REQUIRED_SECURITY_ALERT);
     }
 
     const pNorm = perceptualHash ? perceptualHash.trim().toLowerCase() : null;
     const pRevNorm = perceptualHashReversed ? perceptualHashReversed.trim().toLowerCase() : null;
     const DISTANCE_THRESHOLD = 10;
+    const isTargetVideo = mediaType === 'video' || (videoFingerprint && videoFingerprint.length > 0);
 
-    // Check perceptual hash and exact hash across all world state posts
+    // Global uniqueness check across world state
     const iterator = await ctx.stub.getStateByRange('Post~', 'Post~\uffff');
     const allPosts = await iteratorToList(iterator);
 
@@ -274,12 +320,21 @@ class InstaLedgerContract extends Contract {
       const post = item.record;
       if (!post) continue;
 
-      // Exact content hash match check
+      // 1. Exact cryptographic digest match
       if (post.contentHash && post.contentHash.trim().toLowerCase() === normContentHash) {
-        throw new Error('Blockchain Security Alert: This image (or a heavily similar variant) has already been immutably registered on the ledger by another user.');
+        throw new Error(REQUIRED_SECURITY_ALERT);
       }
 
-      // Perceptual similarity check (including horizontal reversal / mirror checks)
+      // 2. Video Temporal-Spatial Frame Sequence Matching (Trim, Crop, Reverse, Flip Resistant)
+      const isExistingVideo = post.mediaType === 'video' || (post.videoFingerprint && post.videoFingerprint.length > 0);
+      if (isTargetVideo && isExistingVideo) {
+        const vMatch = compareVideoSignatures(videoFingerprint, post.videoFingerprint);
+        if (vMatch.isDuplicate) {
+          throw new Error(REQUIRED_SECURITY_ALERT);
+        }
+      }
+
+      // 3. Image Perceptual Similarity Check (including horizontal mirror/flip)
       if (pNorm && post.perceptualHash) {
         const existingP = post.perceptualHash.trim().toLowerCase();
         const existingPRev = post.perceptualHashReversed ? post.perceptualHashReversed.trim().toLowerCase() : null;
@@ -290,7 +345,17 @@ class InstaLedgerContract extends Contract {
 
         const minDistance = Math.min(distNormal, distRevTarget, distRevExisting);
         if (minDistance <= DISTANCE_THRESHOLD) {
-          throw new Error('Blockchain Security Alert: This image (or a heavily similar variant) has already been immutably registered on the ledger by another user.');
+          throw new Error(REQUIRED_SECURITY_ALERT);
+        }
+      }
+
+      // 4. Cross-Media: Keyframe check (video vs static image)
+      if (isTargetVideo && !isExistingVideo && post.perceptualHash) {
+        const targetVObj = parseVideoSignature(videoFingerprint);
+        for (const fHash of targetVObj.frameHashes) {
+          if (hammingDistance(fHash, post.perceptualHash) <= DISTANCE_THRESHOLD) {
+            throw new Error(REQUIRED_SECURITY_ALERT);
+          }
         }
       }
     }
@@ -310,6 +375,8 @@ class InstaLedgerContract extends Contract {
       contentHash: normContentHash,
       perceptualHash: pNorm || '',
       perceptualHashReversed: pRevNorm || '',
+      mediaType: isTargetVideo ? 'video' : 'image',
+      videoFingerprint: videoFingerprint || '',
       mediaUrl: mediaUrl || '',
       caption: caption || '',
       timestamp: new Date().toISOString(),
@@ -322,7 +389,10 @@ class InstaLedgerContract extends Contract {
     if (pNorm) {
       await ctx.stub.putState(`PerceptualHash~${pNorm}`, toBuffer({ postId, authorId, timestamp: newPost.timestamp }));
     }
-    // Index post under author for fast retrieval
+    if (videoFingerprint) {
+      await ctx.stub.putState(`VideoFingerprint~${postId}`, toBuffer({ postId, fingerprint: videoFingerprint }));
+    }
+
     const authorPostIndex = ctx.stub.createCompositeKey('AuthorPost', [authorId, postId]);
     await ctx.stub.putState(authorPostIndex, toBuffer({ postId, timestamp: newPost.timestamp }));
 
@@ -330,13 +400,21 @@ class InstaLedgerContract extends Contract {
   }
 
   /**
-   * Evaluate whether an image hash or perceptual hash is already registered
+   * Evaluate whether a media asset (image or video) is already registered on the ledger
    */
-  async checkDuplicateImage(ctx, contentHash, perceptualHash, perceptualHashReversed) {
+  async checkDuplicateMedia(
+    ctx,
+    contentHash,
+    perceptualHash,
+    perceptualHashReversed,
+    mediaType = 'image',
+    videoFingerprint = ''
+  ) {
     const normContentHash = contentHash ? contentHash.trim().toLowerCase() : null;
     const pNorm = perceptualHash ? perceptualHash.trim().toLowerCase() : null;
     const pRevNorm = perceptualHashReversed ? perceptualHashReversed.trim().toLowerCase() : null;
     const DISTANCE_THRESHOLD = 10;
+    const isTargetVideo = mediaType === 'video' || (videoFingerprint && videoFingerprint.length > 0);
 
     if (normContentHash) {
       const existingHash = await ctx.stub.getState(`ContentHash~${normContentHash}`);
@@ -346,12 +424,12 @@ class InstaLedgerContract extends Contract {
           matchType: 'exact',
           distance: 0,
           similarity: 1.0,
-          error: 'Blockchain Security Alert: This image (or a heavily similar variant) has already been immutably registered on the ledger by another user.'
+          error: REQUIRED_SECURITY_ALERT
         });
       }
     }
 
-    if (normContentHash || pNorm) {
+    if (normContentHash || pNorm || videoFingerprint) {
       const iterator = await ctx.stub.getStateByRange('Post~', 'Post~\uffff');
       const allPosts = await iteratorToList(iterator);
 
@@ -359,6 +437,7 @@ class InstaLedgerContract extends Contract {
         const post = item.record;
         if (!post) continue;
 
+        // Exact content hash match
         if (normContentHash && post.contentHash && post.contentHash.trim().toLowerCase() === normContentHash) {
           return JSON.stringify({
             isDuplicate: true,
@@ -366,10 +445,27 @@ class InstaLedgerContract extends Contract {
             distance: 0,
             similarity: 1.0,
             existingPost: post,
-            error: 'Blockchain Security Alert: This image (or a heavily similar variant) has already been immutably registered on the ledger by another user.'
+            error: REQUIRED_SECURITY_ALERT
           });
         }
 
+        // Video frame sequence comparison (trim, crop, reverse, flip)
+        const isExistingVideo = post.mediaType === 'video' || (post.videoFingerprint && post.videoFingerprint.length > 0);
+        if (isTargetVideo && isExistingVideo) {
+          const vMatch = compareVideoSignatures(videoFingerprint, post.videoFingerprint);
+          if (vMatch.isDuplicate) {
+            return JSON.stringify({
+              isDuplicate: true,
+              matchType: vMatch.matchType,
+              distance: vMatch.distance,
+              similarity: vMatch.similarity,
+              existingPost: post,
+              error: REQUIRED_SECURITY_ALERT
+            });
+          }
+        }
+
+        // Image perceptual hash comparison
         if (pNorm && post.perceptualHash) {
           const existingP = post.perceptualHash.trim().toLowerCase();
           const existingPRev = post.perceptualHashReversed ? post.perceptualHashReversed.trim().toLowerCase() : null;
@@ -387,7 +483,7 @@ class InstaLedgerContract extends Contract {
               distance: minDistance,
               similarity: Math.max(0, 1 - (minDistance / 64)),
               existingPost: post,
-              error: 'Blockchain Security Alert: This image (or a heavily similar variant) has already been immutably registered on the ledger by another user.'
+              error: REQUIRED_SECURITY_ALERT
             });
           }
         }
@@ -398,6 +494,13 @@ class InstaLedgerContract extends Contract {
       isDuplicate: false,
       message: 'Cryptographically and perceptually unique'
     });
+  }
+
+  /**
+   * Backwards compatible checkDuplicateImage query method
+   */
+  async checkDuplicateImage(ctx, contentHash, perceptualHash, perceptualHashReversed) {
+    return this.checkDuplicateMedia(ctx, contentHash, perceptualHash, perceptualHashReversed, 'image', '');
   }
 
   async getPost(ctx, postId) {
@@ -412,7 +515,6 @@ class InstaLedgerContract extends Contract {
     const iterator = await ctx.stub.getStateByRange('Post~', 'Post~\uffff');
     const records = await iteratorToList(iterator);
     const posts = records.map(r => r.record);
-    // Sort chronologically descending (newest first)
     posts.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
     return JSON.stringify(posts);
   }
@@ -627,7 +729,6 @@ class InstaLedgerContract extends Contract {
     const iterator = await ctx.stub.getStateByPartialCompositeKey('Comment', [postId]);
     const records = await iteratorToList(iterator);
     const comments = records.map(r => r.record);
-    // Sort oldest first (standard social thread)
     comments.sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
     return JSON.stringify(comments);
   }

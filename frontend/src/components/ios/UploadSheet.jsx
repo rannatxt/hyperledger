@@ -132,7 +132,7 @@ export default function UploadSheet({ isOpen, onClose, currentUser, onPostCreate
 
       if (check.isDuplicate) {
         setIsDuplicate(true);
-        setDupError(check.error || 'Blockchain Security Alert: This image (or a heavily similar variant) has already been immutably registered on the ledger by another user.');
+        setDupError(check.error || 'Tamper-Proof Blockchain Security: This media file (or a cropped/trimmed variant) has already been registered on the ledger.');
         setDupDetails(check);
         triggerHaptic('error');
       } else {
@@ -190,9 +190,9 @@ export default function UploadSheet({ isOpen, onClose, currentUser, onPostCreate
     } catch (err) {
       console.error('Commit error:', err);
       triggerHaptic('error');
-      if (err.tamperProofError || err.message?.includes('Blockchain Security Alert') || err.message?.includes('Tamper-proof error')) {
+      if (err.tamperProofError || err.message?.includes('Tamper-Proof Blockchain Security') || err.message?.includes('Blockchain Security Alert') || err.message?.includes('Tamper-proof error')) {
         setIsDuplicate(true);
-        setDupError(err.message || 'Blockchain Security Alert: This image (or a heavily similar variant) has already been immutably registered on the ledger by another user.');
+        setDupError(err.message || 'Tamper-Proof Blockchain Security: This media file (or a cropped/trimmed variant) has already been registered on the ledger.');
         setStage(1);
       } else {
         alert('Transaction failed: ' + err.message);
@@ -390,7 +390,7 @@ export default function UploadSheet({ isOpen, onClose, currentUser, onPostCreate
                     </div>
                     {/* Exact Required Message */}
                     <p className="text-[12px] font-bold leading-relaxed text-white bg-black/40 p-2.5 rounded-[10px] border border-[#ff3b30]/40">
-                      {dupError || 'Blockchain Security Alert: This image (or a heavily similar variant) has already been immutably registered on the ledger by another user.'}
+                      {dupError || 'Tamper-Proof Blockchain Security: This media file (or a cropped/trimmed variant) has already been registered on the ledger.'}
                     </p>
 
                     {dupDetails && (

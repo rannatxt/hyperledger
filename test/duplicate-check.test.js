@@ -3,32 +3,52 @@
 const assert = require('assert');
 const crypto = require('crypto');
 const perceptualHash = require('../backend/services/perceptualHash');
+const videoFingerprint = require('../backend/services/videoFingerprint');
 
-console.log('🧪 Running Comprehensive Global Tamper-Proof & Perceptual Hashing Duplicate Verification Test...\n');
+console.log('🧪 Running Comprehensive Global Tamper-Proof & Multi-Media Fingerprinting Duplicate Verification Test...\n');
 
 // In-memory ledger simulation implementing the Hyperledger Fabric chaincode logic
 const worldStatePosts = new Map();
 const contentHashes = new Set();
 const perceptualHashes = new Set();
 
-const REQUIRED_ALERT = 'Blockchain Security Alert: This image (or a heavily similar variant) has already been immutably registered on the ledger by another user.';
+const REQUIRED_ALERT = 'Tamper-Proof Blockchain Security: This media file (or a cropped/trimmed variant) has already been registered on the ledger.';
 
-function submitPostToLedger(authorId, caption, imageBuffer, mimeType = 'image/jpeg') {
-  const fp = perceptualHash.computePerceptualFingerprint(imageBuffer, mimeType);
-  const { sha256, pHash, pHashReversed } = fp;
+function submitPostToLedger(authorId, caption, mediaBuffer, mimeType = 'image/jpeg', mediaType = 'image') {
+  let sha256 = '';
+  let pHash = '';
+  let pHashReversed = '';
+  let videoSignature = '';
+
+  const isVideo = mediaType === 'video' || (mimeType && mimeType.startsWith('video/'));
+
+  if (isVideo) {
+    const vFp = videoFingerprint.computeVideoFingerprint(mediaBuffer, mimeType);
+    sha256 = vFp.sha256;
+    pHash = vFp.frameHashes[0] || '';
+    pHashReversed = vFp.frameHashesReversed[0] || '';
+    videoSignature = vFp.signature;
+  } else {
+    const fp = perceptualHash.computePerceptualFingerprint(mediaBuffer, mimeType);
+    sha256 = fp.sha256;
+    pHash = fp.pHash;
+    pHashReversed = fp.pHashReversed;
+  }
 
   // 1. Exact cryptographic hash check
   if (contentHashes.has(sha256)) {
     throw new Error(REQUIRED_ALERT);
   }
 
-  // 2. Global perceptual similarity check against all registered ledger posts
+  // 2. Global perceptual & temporal multi-media similarity check against all registered ledger posts
   const uniqueness = perceptualHash.checkGlobalUniqueness(
     sha256,
     pHash,
     pHashReversed,
     Array.from(worldStatePosts.values()),
-    perceptualHash.DEFAULT_DISTANCE_THRESHOLD
+    perceptualHash.DEFAULT_DISTANCE_THRESHOLD,
+    isVideo ? 'video' : 'image',
+    videoSignature
   );
 
   if (uniqueness.isDuplicate) {
@@ -43,12 +63,14 @@ function submitPostToLedger(authorId, caption, imageBuffer, mimeType = 'image/jp
     contentHash: sha256,
     perceptualHash: pHash,
     perceptualHashReversed: pHashReversed,
+    mediaType: isVideo ? 'video' : 'image',
+    videoFingerprint: videoSignature,
     timestamp: new Date().toISOString()
   };
 
   worldStatePosts.set(postId, postRecord);
   contentHashes.add(sha256);
-  perceptualHashes.add(pHash);
+  if (pHash) perceptualHashes.add(pHash);
 
   return postRecord;
 }
@@ -104,15 +126,14 @@ function cropImg(img, factor = 0.85) {
       cropped[dstIdx + 3] = data[srcIdx + 3];
     }
   }
-  return { width: cropW, height: cropH, data: cropped };
+  return { width, cropH, data: cropped };
 }
 
-// Convert image data object to mock buffer for test
+// Prepare image test fixtures
 const imgOriginal = generateGradientImage(64, 64, 0);
 const imgFlipped = flipImg(imgOriginal);
 const imgCropped = cropImg(imgOriginal, 0.85);
 const imgDifferent = generateGradientImage(64, 64, 0);
-// Invert colors to make it completely distinct
 for (let i = 0; i < imgDifferent.data.length; i += 4) {
   imgDifferent.data[i] = 255 - imgDifferent.data[i];
   imgDifferent.data[i + 1] = 255 - imgDifferent.data[i + 1];
@@ -132,9 +153,8 @@ assert.ok(postA.perceptualHash);
 console.log('   ✅ Successfully committed to ledger:', postA.id);
 console.log('   SHA-256:', postA.contentHash);
 console.log('   pHash:  ', postA.perceptualHash);
-console.log('   pHashRev:', postA.perceptualHashReversed);
 
-// ── TEST 2: Exact binary duplicate uploaded by user_elena ──
+// ── TEST 2: Exact binary photo duplicate uploaded by user_elena ──
 console.log('\n2. User @elena attempts exact binary duplicate of photo A...');
 let exactCaught = false;
 try {
@@ -142,7 +162,7 @@ try {
 } catch (err) {
   exactCaught = true;
   assert.strictEqual(err.message, REQUIRED_ALERT);
-  console.log('   ✅ Rejected immediately with required security alert:');
+  console.log('   ✅ Rejected immediately with required tamper-proof security alert:');
   console.log(`   "${err.message}"`);
 }
 assert.strictEqual(exactCaught, true, 'Exact duplicate must be rejected');
@@ -155,7 +175,7 @@ try {
 } catch (err) {
   reversedCaught = true;
   assert.strictEqual(err.message, REQUIRED_ALERT);
-  console.log('   ✅ Rejected immediately with required security alert:');
+  console.log('   ✅ Rejected immediately with required tamper-proof security alert:');
   console.log(`   "${err.message}"`);
 }
 assert.strictEqual(reversedCaught, true, 'Reversed/flipped photo must be rejected');
@@ -168,18 +188,95 @@ try {
 } catch (err) {
   croppedCaught = true;
   assert.strictEqual(err.message, REQUIRED_ALERT);
-  console.log('   ✅ Rejected immediately with required security alert:');
+  console.log('   ✅ Rejected immediately with required tamper-proof security alert:');
   console.log(`   "${err.message}"`);
 }
 assert.strictEqual(croppedCaught, true, 'Cropped/modified photo must be rejected');
 
-// ── TEST 5: Distinct unique photo B uploaded by user_marcus ──
-console.log('\n5. User @marcus uploads a genuine unique photo B...');
+// ── VIDEO TEST FIXTURES ──
+function createSyntheticVideoBuffer(framePats, length = 1280) {
+  const buf = Buffer.alloc(length);
+  for (let i = 0; i < length; i++) {
+    const patIdx = Math.floor((i / length) * framePats.length);
+    buf[i] = (framePats[patIdx] * 7 + (i % 53)) & 0xff;
+  }
+  return buf;
+}
+
+const vidOriginal = createSyntheticVideoBuffer([11, 44, 77, 110, 143, 176, 209, 242], 1280);
+// Trimmed video: trimmed by 128 bytes at start and end (subsequence alignment)
+const vidTrimmed = vidOriginal.slice(128, 1280 - 128);
+// Cropped / re-encoded video: slightly modified payload (delta noise < 5)
+const vidReencoded = Buffer.from(vidOriginal);
+for (let i = 0; i < vidReencoded.length; i += 9) {
+  vidReencoded[i] = (vidReencoded[i] + 1) & 0xff;
+}
+// Distinct video: completely different temporal signature
+const vidUnique = Buffer.alloc(1280);
+for (let i = 0; i < 1280; i++) {
+  vidUnique[i] = Math.floor(Math.sin(i / 15) * 120 + 128);
+}
+
+// ── TEST 5: Original Video V1 uploaded by user_ranna ──
+console.log('\n5. User @ranna uploads original video V1...');
+const postV1 = submitPostToLedger('user_ranna', 'Original 4K drone reel on Fabric', vidOriginal, 'video/mp4', 'video');
+assert.ok(postV1.id);
+assert.equal(postV1.mediaType, 'video');
+assert.ok(postV1.videoFingerprint);
+console.log('   ✅ Successfully committed video to ledger:', postV1.id);
+console.log('   Video Signature:', postV1.videoFingerprint.slice(0, 45) + '...');
+
+// ── TEST 6: Exact duplicate video V1 uploaded by user_elena ──
+console.log('\n6. User @elena attempts exact duplicate upload of video V1...');
+let exactVidCaught = false;
+try {
+  submitPostToLedger('user_elena', 'Exact video repost attempt', vidOriginal, 'video/mp4', 'video');
+} catch (err) {
+  exactVidCaught = true;
+  assert.strictEqual(err.message, REQUIRED_ALERT);
+  console.log('   ✅ Rejected immediately with required tamper-proof security alert:');
+  console.log(`   "${err.message}"`);
+}
+assert.strictEqual(exactVidCaught, true, 'Exact video duplicate must be rejected');
+
+// ── TEST 7: Trimmed variant of video V1 uploaded by user_pirate (Trim Resistance) ──
+console.log('\n7. User @pirate attempts trimmed edge variant of video V1 (Trim-Resistance Verification)...');
+let trimCaught = false;
+try {
+  submitPostToLedger('user_pirate', 'Trimmed intro/outro to bypass detection', vidTrimmed, 'video/mp4', 'video');
+} catch (err) {
+  trimCaught = true;
+  assert.strictEqual(err.message, REQUIRED_ALERT);
+  console.log('   ✅ Blocked immediately! Overlapping sequence detected:');
+  console.log(`   "${err.message}"`);
+}
+assert.strictEqual(trimCaught, true, 'Trimmed video must be rejected via subsequence alignment');
+
+// ── TEST 8: Re-encoded / cropped variant of video V1 uploaded by user_bot ──
+console.log('\n8. User @bot attempts re-encoded/cropped compression variant of video V1...');
+let reencodeCaught = false;
+try {
+  submitPostToLedger('user_bot', 'Compressed re-encode', vidReencoded, 'video/mp4', 'video');
+} catch (err) {
+  reencodeCaught = true;
+  assert.strictEqual(err.message, REQUIRED_ALERT);
+  console.log('   ✅ Blocked immediately! Compression/crop delta detected:');
+  console.log(`   "${err.message}"`);
+}
+assert.strictEqual(reencodeCaught, true, 'Re-encoded video must be rejected');
+
+// ── TEST 9: Genuine unique photo B uploaded by user_marcus ──
+console.log('\n9. User @marcus uploads a genuine unique photo B...');
 const postB = submitPostToLedger('user_marcus', 'New unique digital creation', bufDifferent);
 assert.ok(postB.id);
 assert.notStrictEqual(postB.id, postA.id);
 console.log('   ✅ Unique photo successfully committed to ledger:', postB.id);
-console.log('   SHA-256:', postB.contentHash);
-console.log('   pHash:  ', postB.perceptualHash);
 
-console.log('\n🎉 ALL GLOBAL TAMPER-PROOF & PERCEPTUAL HASHING TESTS PASSED PERFECTLY!\n');
+// ── TEST 10: Genuine unique video V2 uploaded by user_marcus ──
+console.log('\n10. User @marcus uploads a genuine unique video V2...');
+const postV2 = submitPostToLedger('user_marcus', 'Brand new original animation video', vidUnique, 'video/mp4', 'video');
+assert.ok(postV2.id);
+assert.notStrictEqual(postV2.id, postV1.id);
+console.log('   ✅ Unique video successfully committed to ledger:', postV2.id);
+
+console.log('\n🎉 ALL 10 GLOBAL TAMPER-PROOF & MULTI-MEDIA FINGERPRINTING TESTS PASSED PERFECTLY!\n');

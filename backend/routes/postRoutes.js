@@ -6,25 +6,36 @@ const multer = require('multer');
 const crypto = require('crypto');
 const fabricClient = require('../services/fabricClient');
 const ipfsService = require('../services/ipfsService');
-
 const perceptualHashService = require('../services/perceptualHash');
 
 const upload = multer({
   storage: multer.memoryStorage(),
-  limits: { fileSize: 25 * 1024 * 1024 }
+  limits: { fileSize: 50 * 1024 * 1024 } // 50MB for video support
 });
 
 // Create post (handles file upload to IPFS -> commits metadata to Fabric ledger)
 router.post('/', upload.single('media'), async (req, res) => {
   try {
-    let { authorId, caption, contentHash, mediaUrl, perceptualHash, perceptualHashReversed } = req.body;
+    let {
+      authorId,
+      caption,
+      contentHash,
+      mediaUrl,
+      perceptualHash,
+      perceptualHashReversed,
+      mediaType = 'image',
+      videoFingerprint = ''
+    } = req.body;
 
     if (!authorId) {
       return res.status(400).json({ error: 'authorId is required' });
     }
 
-    // If file was uploaded in the request, store it in IPFS mock and compute perceptual fingerprint
+    // If file was uploaded in the request, store it in IPFS mock and compute multi-media fingerprint
     if (req.file) {
+      const isVideo = req.file.mimetype.startsWith('video/') || perceptualHashService.isVideoBuffer(req.file.buffer);
+      mediaType = isVideo ? 'video' : 'image';
+
       const ipfsRecord = await ipfsService.uploadBuffer(
         req.file.buffer,
         req.file.originalname,
@@ -33,10 +44,12 @@ router.post('/', upload.single('media'), async (req, res) => {
       contentHash = ipfsRecord.cid;
       mediaUrl = `/api/ipfs/${ipfsRecord.cid}`;
 
-      // Automatically compute perceptual fingerprint from the uploaded file buffer
       const fp = perceptualHashService.computePerceptualFingerprint(req.file.buffer, req.file.mimetype);
       perceptualHash = fp.pHash;
       perceptualHashReversed = fp.pHashReversed;
+      if (isVideo) {
+        videoFingerprint = fp.videoFingerprint;
+      }
     }
 
     if (!contentHash) {
@@ -54,43 +67,60 @@ router.post('/', upload.single('media'), async (req, res) => {
       caption || '',
       mediaUrl || `/api/ipfs/${contentHash}`,
       perceptualHash || '',
-      perceptualHashReversed || ''
+      perceptualHashReversed || '',
+      mediaType || 'image',
+      videoFingerprint || ''
     );
 
     const postRecord = JSON.parse(result);
     res.status(201).json(postRecord);
   } catch (err) {
     console.error('Error creating post on ledger:', err);
-    if (err.message && (err.message.includes('Blockchain Security Alert') || err.message.includes('Tamper-proof'))) {
+    if (
+      err.message &&
+      (err.message.includes('Tamper-Proof Blockchain Security') ||
+       err.message.includes('Blockchain Security Alert') ||
+       err.message.includes('Tamper-proof'))
+    ) {
       return res.status(409).json({ error: err.message, tamperProofError: true });
     }
     res.status(400).json({ error: err.message });
   }
 });
 
-// Check duplicate photo hash (handles both cryptographic & perceptual similarity)
+// Check duplicate media hash (handles cryptographic, perceptual, & temporal video frame sequence matching)
 router.post('/check-duplicate', upload.single('media'), async (req, res) => {
   try {
-    let { contentHash, perceptualHash, perceptualHashReversed } = req.body;
+    let {
+      contentHash,
+      perceptualHash,
+      perceptualHashReversed,
+      mediaType = 'image',
+      videoFingerprint = ''
+    } = req.body;
 
-    // If a media file was attached, compute SHA-256 and perceptual hashes on the fly
+    // If a media file was attached, compute SHA-256 and multi-media fingerprints on the fly
     if (req.file) {
       const fp = perceptualHashService.computePerceptualFingerprint(req.file.buffer, req.file.mimetype);
       contentHash = fp.sha256;
       perceptualHash = fp.pHash;
       perceptualHashReversed = fp.pHashReversed;
+      mediaType = fp.mediaType;
+      videoFingerprint = fp.videoFingerprint || '';
     }
 
-    if (!contentHash && !perceptualHash) {
-      return res.status(400).json({ error: 'Either media file, contentHash, or perceptualHash is required' });
+    if (!contentHash && !perceptualHash && !videoFingerprint) {
+      return res.status(400).json({ error: 'Either media file, contentHash, perceptualHash, or videoFingerprint is required' });
     }
 
     // Evaluate against Fabric chaincode
     const rawCheck = await fabricClient.evaluateTransaction(
-      'checkDuplicateImage',
+      'checkDuplicateMedia',
       contentHash || '',
       perceptualHash || '',
-      perceptualHashReversed || ''
+      perceptualHashReversed || '',
+      mediaType || 'image',
+      videoFingerprint || ''
     );
     const checkResult = JSON.parse(rawCheck);
 
@@ -101,16 +131,18 @@ router.post('/check-duplicate', upload.single('media'), async (req, res) => {
         distance: checkResult.distance,
         similarity: checkResult.similarity,
         existingPost: checkResult.existingPost,
-        error: checkResult.error || 'Blockchain Security Alert: This image (or a heavily similar variant) has already been immutably registered on the ledger by another user.'
+        error: checkResult.error || 'Tamper-Proof Blockchain Security: This media file (or a cropped/trimmed variant) has already been registered on the ledger.'
       });
     }
 
     res.json({
       isDuplicate: false,
-      message: 'Cryptographically and perceptually unique',
+      message: 'Cryptographically, temporally, and perceptually unique',
       contentHash,
       perceptualHash,
-      perceptualHashReversed
+      perceptualHashReversed,
+      mediaType,
+      videoFingerprint
     });
   } catch (err) {
     console.error('Error in check-duplicate:', err);
@@ -126,7 +158,6 @@ router.get('/feed', async (req, res) => {
 
     const viewerId = req.query.viewerId;
     if (viewerId) {
-      // Check like status for viewer
       const enriched = await Promise.all(
         posts.map(async (post) => {
           try {
