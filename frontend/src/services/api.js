@@ -1,4 +1,4 @@
-const BASE = import.meta.env.VITE_API_URL || '';
+const BASE = 'https://hyperledger-backend.vercel.app';
 
 async function json(res) {
   const data = await res.json();
@@ -12,11 +12,11 @@ async function json(res) {
 }
 
 export const api = {
-  getFeed:    (viewerId) => fetch(`${BASE}/api/posts/feed${viewerId ? `?viewerId=${viewerId}` : ''}`).then(json),
-  getUsers:   ()         => fetch(`${BASE}/api/auth/users`).then(json),
-  getProfile: (id)       => fetch(`${BASE}/api/auth/profile/${id}`).then(json),
-  getLedger:  ()         => fetch(`${BASE}/api/ledger/status`).then(json),
-  getBlocks:  ()         => fetch(`${BASE}/api/ledger/blocks`).then(json),
+  getFeed: (viewerId) => fetch(`${BASE}/api/posts/feed${viewerId ? `?viewerId=${viewerId}` : ''}`).then(json),
+  getUsers: () => fetch(`${BASE}/api/auth/users`).then(json),
+  getProfile: (id) => fetch(`${BASE}/api/auth/profile/${id}`).then(json),
+  getLedger: () => fetch(`${BASE}/api/ledger/status`).then(json),
+  getBlocks: () => fetch(`${BASE}/api/ledger/blocks`).then(json),
 
   createPost: (formData) =>
     fetch(`${BASE}/api/posts`, { method: 'POST', body: formData }).then(json),
