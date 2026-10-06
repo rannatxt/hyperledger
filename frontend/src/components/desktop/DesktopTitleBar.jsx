@@ -1,7 +1,7 @@
 import React from 'react';
 import {
-  ShieldCheck, RefreshCw, Layers, Monitor,
-  Search, CheckCircle2
+  ShieldCheck, RefreshCw, Smartphone, Monitor,
+  Search, PlusSquare
 } from 'lucide-react';
 
 export default function DesktopTitleBar({
@@ -18,103 +18,82 @@ export default function DesktopTitleBar({
   onOpenUpload
 }) {
   return (
-    <header className="h-16 w-full bg-white border-b border-[#EFEFEF] flex items-center justify-between px-4 md:px-6 select-none z-30 flex-shrink-0 shadow-[0_1px_4px_rgba(0,0,0,0.03)]">
-      {/* ── Left: Brand & Window Indicator ── */}
+    <header className="h-14 w-full bg-white border-b border-[#DBDBDB] flex items-center justify-between px-4 md:px-6 select-none z-30 flex-shrink-0 font-sans">
+      {/* ── Left: Brand & Fabric status ── */}
       <div className="flex items-center gap-3">
-        <div className="flex items-center gap-2">
-          {/* Pinterest-style Red Logo Mark */}
-          <div
-            onClick={onOpenUpload}
-            className="w-10 h-10 rounded-full bg-[#E60023] hover:bg-[#AD081B] text-white flex items-center justify-center font-black text-xl shadow-md cursor-pointer transition-transform active:scale-95"
-            title="Create New Pin"
-          >
-            <span>⛓</span>
-          </div>
-
-          <div className="flex flex-col cursor-pointer" onClick={() => window.location.reload()}>
-            <span className="text-base font-extrabold text-[#111111] tracking-tight leading-tight">
-              Insta<span className="text-[#E60023]">Ledger</span>
-            </span>
-            <span className="text-[10px] text-[#767676] font-mono flex items-center gap-1 font-semibold">
-              <span className="w-1.5 h-1.5 rounded-full bg-[#27ae60] animate-pulse" />
-              Fabric v2.5 · {channelName}
-            </span>
-          </div>
+        <div className="flex items-baseline gap-1.5 cursor-pointer" onClick={() => window.location.reload()}>
+          <span className="text-xl font-bold tracking-tight text-[#262626] font-serif italic">
+            Instagram
+          </span>
+          <span className="text-[10px] font-sans font-bold uppercase tracking-wider px-1.5 py-0.5 rounded-full bg-[#EFEFEF] text-[#737373] border border-[#DBDBDB]/60">
+            Ledger
+          </span>
         </div>
+
+        <button
+          onClick={onOpenLedger}
+          className="hidden sm:flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-[#FAFAFA] hover:bg-[#EFEFEF] border border-[#E5E5E5] text-[11px] font-mono text-[#737373] transition-colors"
+        >
+          <span className="w-1.5 h-1.5 rounded-full bg-[#00BA88] animate-pulse" />
+          <span>{channelName}</span>
+          <span className="text-[#8E8E8E]">·</span>
+          <span>Block #{blockHeight}</span>
+        </button>
       </div>
 
-      {/* ── Center: Pinterest Search Bar Pill ── */}
-      <div className="hidden sm:flex flex-1 max-w-xl mx-4 lg:mx-8">
-        <div className="w-full flex items-center gap-2.5 px-4 py-2.5 rounded-full bg-[#F0F0F0] hover:bg-[#EAEAEA] focus-within:bg-white focus-within:ring-2 focus-within:ring-[#E60023]/25 focus-within:border-[#E60023] border border-transparent transition-all">
-          <Search className="w-4 h-4 text-[#767676] flex-shrink-0" />
+      {/* ── Center: Search Bar ── */}
+      <div className="flex-1 max-w-md mx-4 hidden md:block">
+        <div className="w-full flex items-center gap-2 px-3 py-1.5 rounded-lg bg-[#EFEFEF] text-[#262626] focus-within:bg-white focus-within:ring-1 focus-within:ring-[#DBDBDB] border border-transparent transition-all">
+          <Search className="w-4 h-4 text-[#8E8E8E] flex-shrink-0" />
           <input
             type="text"
             value={searchQuery || ''}
             onChange={(e) => setSearchQuery?.(e.target.value)}
-            placeholder="Search pins, creators, blockchain CIDs, or perceptual hashes…"
-            className="w-full bg-transparent border-none outline-none text-xs text-[#111111] placeholder:text-[#767676]"
+            placeholder="Search tags, authors, or multihashes…"
+            className="w-full bg-transparent border-none outline-none text-xs text-[#262626] placeholder:text-[#8E8E8E]"
           />
         </div>
       </div>
 
-      {/* ── Right: Channel, Actions & Profile ── */}
-      <div className="flex items-center gap-2.5">
-        {/* Blockchain Inspector Pill */}
-        <button
-          onClick={onOpenLedger}
-          className="hidden md:flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-[#F0F0F0] hover:bg-[#E2E2E2] text-xs font-semibold text-[#111111] transition-colors"
-          title="Inspect Hyperledger Fabric Ledger"
-        >
-          <ShieldCheck className="w-3.5 h-3.5 text-[#E60023]" />
-          <span>Ledger</span>
-          <span className="text-[10px] font-mono px-1.5 py-0.2 rounded-full bg-white text-[#767676] font-bold border border-black/5">
-            #{blockHeight}
-          </span>
-        </button>
-
+      {/* ── Right: Action Buttons & Layout Toggle ── */}
+      <div className="flex items-center gap-2">
         {/* Sync Button */}
         <button
           onClick={onRefresh}
-          className="flex items-center gap-1 px-3 py-1.5 rounded-full bg-[#F0F0F0] hover:bg-[#E2E2E2] text-[#111111] text-xs font-semibold transition-colors"
-          title="Synchronize ledger state"
+          className="p-1.5 rounded-lg text-[#262626] hover:bg-[#FAFAFA] transition-colors flex items-center gap-1 text-xs"
+          title="Synchronize feed"
         >
-          <RefreshCw className={`w-3.5 h-3.5 ${loadingFeed ? 'animate-spin text-[#E60023]' : 'text-[#767676]'}`} />
-          <span className="hidden sm:inline">Sync</span>
+          <RefreshCw className={`w-4 h-4 ${loadingFeed ? 'animate-spin text-[#0095F6]' : 'text-[#262626]'}`} />
+          <span className="hidden sm:inline font-medium">Sync</span>
         </button>
 
-        {/* Layout Toggle (Desktop vs Compact) */}
+        {/* Create Post */}
+        <button
+          onClick={onOpenUpload}
+          className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[#0095F6] hover:bg-[#1877F2] text-white text-xs font-semibold shadow-xs transition-colors"
+        >
+          <PlusSquare className="w-4 h-4" />
+          <span>Create Post</span>
+        </button>
+
+        {/* View Mode Switcher (Desktop Web vs iPhone 16 Pro Frame) */}
         <button
           onClick={() => setViewMode(viewMode === 'desktop' ? 'compact' : 'desktop')}
-          className="hidden lg:flex items-center gap-1 px-3 py-1.5 rounded-full bg-[#F0F0F0] hover:bg-[#E2E2E2] text-[#111111] text-xs font-semibold transition-colors"
-          title="Toggle view mode"
+          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[#FAFAFA] hover:bg-[#EFEFEF] text-xs font-semibold text-[#262626] border border-[#DBDBDB] transition-all active:scale-95 ml-1"
+          title={viewMode === 'desktop' ? 'Switch to iPhone 16 Pro Frame' : 'Switch to Desktop Web View'}
         >
           {viewMode === 'desktop' ? (
             <>
-              <Monitor className="w-3.5 h-3.5 text-[#E60023]" />
-              <span>Full Masonry</span>
+              <Smartphone className="w-3.5 h-3.5 text-[#0095F6]" />
+              <span className="hidden sm:inline">iPhone View</span>
             </>
           ) : (
             <>
-              <Layers className="w-3.5 h-3.5 text-[#E60023]" />
-              <span>Compact View</span>
+              <Monitor className="w-3.5 h-3.5 text-[#0095F6]" />
+              <span className="hidden sm:inline">Web View</span>
             </>
           )}
         </button>
-
-        {/* Active User Avatar Pill */}
-        {currentUser && (
-          <div className="flex items-center gap-2 pl-2 border-l border-[#EFEFEF]">
-            <img
-              src={currentUser.avatarUrl}
-              alt={currentUser.username}
-              className="w-8 h-8 rounded-full object-cover ring-2 ring-[#E60023]/20"
-            />
-            <div className="hidden xl:flex flex-col text-left">
-              <span className="text-xs font-bold text-[#111111] leading-none">@{currentUser.username}</span>
-              <span className="text-[10px] text-[#27ae60] font-mono font-semibold">Org1MSP</span>
-            </div>
-          </div>
-        )}
       </div>
     </header>
   );

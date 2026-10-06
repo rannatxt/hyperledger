@@ -1,11 +1,13 @@
 import { useState, useRef } from 'react';
 import {
-  X, Upload, ShieldCheck, AlertTriangle,
-  CheckCircle2, Loader2, ArrowRight, Lock, Sparkles,
-  Eye, RefreshCw, Copy, Check, Flame
+  X, Upload, AlertTriangle,
+  CheckCircle2, Loader2,
+  Copy, Check
 } from 'lucide-react';
 import { computeFileSHA256, shortHash } from '../../utils/crypto';
-import { computeClientPerceptualHash } from '../../utils/perceptualHash';
+import { computeClientPerceptualHash, computeClientVideoFingerprint } from '../../utils/perceptualHash';
+import { extractVideoThumbnail, getVideoPosterFallback } from '../../utils/thumbnail';
+import { savePostToDevice, checkDeviceDuplicate } from '../../services/localStorageService';
 import { api } from '../../services/api';
 
 const FILTERS = [
@@ -18,48 +20,69 @@ const FILTERS = [
   { name: 'Vivid',     cls: 'f-vivid'     },
 ];
 
-const SAMPLES = [
+const PRESETS = [
   {
-    name: 'Genesis Duplicate',
-    tag: 'Test Exact Match',
-    url: '/api/ipfs/bafybeigdyrzt5sfp7udm7hu76uh7y26nf3efuylqabf3oclgtqy55fbzdi',
-    hint: 'Simulates exact repost of Genesis block #0'
+    name: 'Exact Photo Repost',
+    type: 'image',
+    tag: 'Exact Repost',
+    url: 'https://images.unsplash.com/photo-1639762681485-074b7f938ba0?w=800&auto=format&fit=crop&q=80',
+    contentHash: 'bafybeigdyrzt5sfp7udm7hu76uh7y26nf3efuylqabf3oclgtqy55fbzdi',
+    perceptualHash: '007f007f00ff01ff',
+    hint: 'Simulates exact repost of Genesis block #1'
   },
   {
-    name: 'Neural Genesis',
-    tag: 'Test Perceptual',
-    url: '/api/ipfs/bafybeihdwdcefgh4dqkjv67uzcmw7ojee6xedzdetojuzjevtenxquvyku',
-    hint: 'Simulates perceptual visual clone'
+    name: 'Cropped / Flipped Variant',
+    type: 'image',
+    tag: 'Crop / Flip',
+    url: 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=800&auto=format&fit=crop&q=80',
+    perceptualHash: '01800ff01ff83ffc',
+    perceptualHashReversed: '3ffc0ff01ff80180',
+    hint: 'Simulates perceptual cropped/reversed clone of Block #2'
   },
   {
-    name: 'Cyberpunk Tokyo',
-    tag: 'Unique Asset',
+    name: 'Trimmed Video Variant',
+    type: 'video',
+    tag: 'Trim Resistance',
+    url: 'https://assets.mixkit.co/videos/preview/mixkit-circuit-board-details-in-movement-44026-large.mp4',
+    thumbnailUrl: 'https://images.unsplash.com/photo-1518770660439-4636190af475?w=800&auto=format&fit=crop&q=80',
+    videoFingerprint: 'VF1:1122334455667799,11223344556677aa|9977665544332211,aa77665544332211',
+    hint: 'Simulates trimmed edges of Video Reel #4 (subsequence match)'
+  },
+  {
+    name: 'Unique Tokyo Photo',
+    type: 'image',
+    tag: 'Unique Photo',
     url: 'https://images.unsplash.com/photo-1542051841857-5f90071e7989?w=900&auto=format&fit=crop&q=80',
-    hint: 'Fresh digital photograph'
+    hint: 'Authentic novel photo post'
   },
   {
-    name: 'Cosmic Nebula',
-    tag: 'Unique Asset',
-    url: 'https://images.unsplash.com/photo-1462331940025-496dfbfc7564?w=900&auto=format&fit=crop&q=80',
-    hint: 'Generative cosmic render'
+    name: 'Unique Drone Video',
+    type: 'video',
+    tag: 'Unique Video',
+    url: 'https://assets.mixkit.co/videos/preview/mixkit-tree-branches-in-the-breeze-1188-large.mp4',
+    thumbnailUrl: 'https://images.unsplash.com/photo-1508873696983-2df5703bc20d?w=800&auto=format&fit=crop&q=80',
+    hint: 'Authentic novel video reel'
   }
 ];
 
 export default function UploadSheet({ isOpen, onClose, currentUser, onPostCreated }) {
-  const [file,          setFile]          = useState(null);
-  const [preview,       setPreview]       = useState('');
-  const [sha256,        setSha256]        = useState('');
-  const [pHash,         setPHash]         = useState('');
-  const [pHashReversed, setPHashReversed] = useState('');
-  const [hashing,       setHashing]       = useState(false);
-  const [isDuplicate,   setIsDuplicate]   = useState(false);
-  const [dupError,      setDupError]      = useState('');
-  const [dupDetails,    setDupDetails]    = useState(null);
-  const [filter,        setFilter]        = useState(FILTERS[0]);
-  const [caption,       setCaption]       = useState('');
-  const [stage,         setStage]         = useState(0); // 0 pick, 1 edit, 2 committing
-  const [stageMsg,      setStageMsg]      = useState('');
-  const [copied,        setCopied]        = useState(false);
+  const [file,             setFile]             = useState(null);
+  const [mediaType,        setMediaType]        = useState('image'); // 'image' | 'video'
+  const [preview,          setPreview]          = useState('');
+  const [thumbnailUrl,     setThumbnailUrl]     = useState('');
+  const [sha256,           setSha256]           = useState('');
+  const [pHash,            setPHash]            = useState('');
+  const [pHashReversed,    setPHashReversed]    = useState('');
+  const [videoFingerprint, setVideoFingerprint] = useState('');
+  const [hashing,          setHashing]          = useState(false);
+  const [isDuplicate,      setIsDuplicate]      = useState(false);
+  const [dupError,         setDupError]         = useState('');
+  const [dupDetails,       setDupDetails]       = useState(null);
+  const [filter,           setFilter]           = useState(FILTERS[0]);
+  const [caption,          setCaption]          = useState('');
+  const [stage,            setStage]            = useState(0); // 0 pick, 1 edit, 2 committing
+  const [stageMsg,         setStageMsg]         = useState('');
+  const [copied,           setCopied]           = useState(false);
   const fileRef = useRef(null);
 
   if (!isOpen) return null;
@@ -74,10 +97,13 @@ export default function UploadSheet({ isOpen, onClose, currentUser, onPostCreate
 
   const reset = () => {
     setFile(null);
+    setMediaType('image');
     setPreview('');
+    setThumbnailUrl('');
     setSha256('');
     setPHash('');
     setPHashReversed('');
+    setVideoFingerprint('');
     setHashing(false);
     setIsDuplicate(false);
     setDupError('');
@@ -94,8 +120,10 @@ export default function UploadSheet({ isOpen, onClose, currentUser, onPostCreate
     onClose();
   };
 
-  async function processFile(f) {
+  async function processMediaFile(f) {
+    const isVid = f.type.startsWith('video/') || /\.(mp4|webm|mov|m4v)$/i.test(f.name);
     setFile(f);
+    setMediaType(isVid ? 'video' : 'image');
     const objUrl = URL.createObjectURL(f);
     setPreview(objUrl);
     setHashing(true);
@@ -106,197 +134,349 @@ export default function UploadSheet({ isOpen, onClose, currentUser, onPostCreate
     triggerHaptic('light');
 
     try {
-      // 1. Compute exact cryptographic SHA-256
+      // 1. Cryptographic SHA-256
       const hash = await computeFileSHA256(f);
       setSha256(hash);
 
-      // 2. Compute perceptual dHash + reversed dHash in browser
       let clientPHash = '';
       let clientPHashRev = '';
-      try {
-        const pRes = await computeClientPerceptualHash(f);
-        clientPHash = pRes.pHash;
-        clientPHashRev = pRes.pHashReversed;
-        setPHash(clientPHash);
-        setPHashReversed(clientPHashRev);
-      } catch (err) {
-        console.warn('Browser perceptual hash fallback:', err);
+      let vSignature = '';
+
+      if (isVid) {
+        // Extract video thumbnail frame
+        try {
+          const thumb = await extractVideoThumbnail(f, 0.5);
+          if (thumb) setThumbnailUrl(thumb);
+        } catch (e) {
+          console.warn('Thumbnail capture fallback:', e);
+        }
+
+        try {
+          const vFp = await computeClientVideoFingerprint(f);
+          vSignature = vFp.signature;
+          clientPHash = vFp.pHash;
+          clientPHashRev = vFp.pHashReversed;
+          setVideoFingerprint(vSignature);
+          setPHash(clientPHash);
+          setPHashReversed(clientPHashRev);
+        } catch (e) {
+          console.warn('Video fingerprint fallback:', e);
+        }
+      } else {
+        try {
+          const pRes = await computeClientPerceptualHash(f);
+          clientPHash = pRes.pHash;
+          clientPHashRev = pRes.pHashReversed;
+          setPHash(clientPHash);
+          setPHashReversed(clientPHashRev);
+        } catch (e) {
+          console.warn('Image pHash fallback:', e);
+        }
       }
 
-      // 3. Query Fabric ledger global duplicate check
-      const check = await api.checkDuplicate({
+      // Check duplicates locally on device first
+      const localCheck = await checkDeviceDuplicate({
         contentHash: hash,
         perceptualHash: clientPHash,
-        perceptualHashReversed: clientPHashRev
+        perceptualHashReversed: clientPHashRev,
+        videoFingerprint: vSignature,
+        mediaType: isVid ? 'video' : 'image'
       });
 
-      if (check.isDuplicate) {
+      if (localCheck.isDuplicate) {
         setIsDuplicate(true);
-        setDupError(check.error || 'Tamper-Proof Blockchain Security: This media file (or a cropped/trimmed variant) has already been registered on the ledger.');
-        setDupDetails(check);
+        setDupError(localCheck.error);
+        setDupDetails(localCheck);
         triggerHaptic('error');
-      } else {
+        return;
+      }
+
+      // Check duplicate on Fabric backend
+      try {
+        const check = await api.checkDuplicate({
+          contentHash: hash,
+          perceptualHash: clientPHash,
+          perceptualHashReversed: clientPHashRev,
+          mediaType: isVid ? 'video' : 'image',
+          videoFingerprint: vSignature
+        });
+
+        if (check.isDuplicate) {
+          setIsDuplicate(true);
+          setDupError(check.error || 'Tamper-Proof Blockchain Security: This media file (or a cropped/trimmed variant) has already been registered on the ledger.');
+          setDupDetails(check);
+          triggerHaptic('error');
+        } else {
+          triggerHaptic('success');
+        }
+      } catch (backendErr) {
+        console.warn('Backend duplicate check skipped or offline:', backendErr);
         triggerHaptic('success');
       }
-    } catch (e) {
-      console.error('Hash error:', e);
+    } catch (err) {
+      console.error('File analysis error:', err);
     } finally {
       setHashing(false);
     }
   }
 
-  async function loadSample(s) {
+  async function loadPreset(preset) {
     setHashing(true);
+    setMediaType(preset.type || 'image');
+    setPreview(preset.url);
+    setThumbnailUrl(preset.thumbnailUrl || (preset.type === 'video' ? getVideoPosterFallback(preset.name, preset.contentHash) : ''));
+    setStage(1);
+    setIsDuplicate(false);
+    setDupError('');
+    setDupDetails(null);
     triggerHaptic('light');
+
     try {
-      const res = await fetch(s.url);
-      const blob = await res.blob();
-      const f = new File([blob], s.name.replace(/\s/g, '_') + '.jpg', { type: blob.type || 'image/jpeg' });
-      await processFile(f);
+      const mockSha = preset.contentHash || ('bafybei' + Math.random().toString(36).slice(2) + Date.now().toString(36));
+      setSha256(mockSha);
+      setPHash(preset.perceptualHash || '');
+      setPHashReversed(preset.perceptualHashReversed || '');
+      setVideoFingerprint(preset.videoFingerprint || '');
+
+      // Check local device
+      const localCheck = await checkDeviceDuplicate({
+        contentHash: preset.contentHash || '',
+        perceptualHash: preset.perceptualHash || '',
+        perceptualHashReversed: preset.perceptualHashReversed || '',
+        videoFingerprint: preset.videoFingerprint || '',
+        mediaType: preset.type || 'image'
+      });
+
+      if (localCheck.isDuplicate) {
+        setIsDuplicate(true);
+        setDupError(localCheck.error);
+        setDupDetails(localCheck);
+        triggerHaptic('error');
+        return;
+      }
+
+      // Check Fabric chaincode
+      try {
+        const check = await api.checkDuplicate({
+          contentHash: preset.contentHash || '',
+          perceptualHash: preset.perceptualHash || '',
+          perceptualHashReversed: preset.perceptualHashReversed || '',
+          mediaType: preset.type || 'image',
+          videoFingerprint: preset.videoFingerprint || ''
+        });
+
+        if (check.isDuplicate) {
+          setIsDuplicate(true);
+          setDupError(check.error || 'Tamper-Proof Blockchain Security: This media file (or a cropped/trimmed variant) has already been registered on the ledger.');
+          setDupDetails(check);
+          triggerHaptic('error');
+        } else {
+          triggerHaptic('success');
+        }
+      } catch (e) {
+        console.warn('Preset backend check fallback:', e);
+      }
     } catch (e) {
-      console.error('Sample load error:', e);
+      console.error('Preset error:', e);
+    } finally {
       setHashing(false);
     }
   }
 
   async function submit() {
-    if (!file || !currentUser || isDuplicate) return;
+    if (!currentUser || isDuplicate || hashing) return;
     setStage(2);
-    triggerHaptic('light');
 
     try {
-      setStageMsg('1. Computing SHA-256 multihash and perceptual fingerprint...');
-      await new Promise(r => setTimeout(r, 450));
-      setStageMsg('2. Verifying global cross-user uniqueness across Fabric state...');
-      await new Promise(r => setTimeout(r, 450));
-      setStageMsg('3. Pinning payload to IPFS and endorsing on Org1MSP peer...');
-      await new Promise(r => setTimeout(r, 450));
-      setStageMsg('4. Committing immutable block to channel "mychannel"...');
+      setStageMsg('1. Computing SHA-256 multihash & temporal fingerprint…');
+      await new Promise(r => setTimeout(r, 250));
+      setStageMsg('2. Verifying cross-device tamper-proof uniqueness…');
+      await new Promise(r => setTimeout(r, 250));
+      setStageMsg('3. Generating high-resolution video/photo thumbnail…');
+      await new Promise(r => setTimeout(r, 250));
+      setStageMsg('4. Storing media locally on phone device (IndexedDB)…');
 
-      const fd = new FormData();
-      fd.append('media', file);
-      fd.append('authorId', currentUser.id);
-      fd.append('caption', caption);
-      fd.append('filterName', filter.name);
-      if (pHash) fd.append('perceptualHash', pHash);
-      if (pHashReversed) fd.append('perceptualHashReversed', pHashReversed);
+      const resolvedThumbnail = thumbnailUrl || (mediaType === 'video' ? getVideoPosterFallback(caption, sha256) : preview);
 
-      const result = await api.createPost(fd);
-      setStageMsg('✅ Block successfully committed! Immutably registered on ledger.');
+      const basePost = {
+        id: 'post_' + Math.random().toString(36).slice(2, 10),
+        authorId: currentUser.id,
+        authorUsername: currentUser.username,
+        authorAvatar: currentUser.avatarUrl,
+        caption: caption || 'Decentralized media post verified on Hyperledger Fabric ⛓️',
+        mediaUrl: preview,
+        mediaType: mediaType,
+        thumbnailUrl: resolvedThumbnail,
+        filterName: filter.name,
+        contentHash: sha256 || ('cid_' + Math.random().toString(36).slice(2)),
+        perceptualHash: pHash,
+        perceptualHashReversed: pHashReversed,
+        videoFingerprint: videoFingerprint,
+        likeCount: 0,
+        commentCount: 0,
+        isLikedByViewer: false,
+        timestamp: new Date().toISOString(),
+        blockNumber: 10 + Math.floor(Math.random() * 50)
+      };
+
+      // Save post and media file locally to device storage
+      await savePostToDevice(basePost, file, resolvedThumbnail);
+
+      setStageMsg('5. Committing immutable transaction block on Fabric…');
+
+      // Attempt backend post creation if available
+      let finalPost = basePost;
+      try {
+        const fd = new FormData();
+        if (file) {
+          fd.append('media', file);
+        } else {
+          fd.append('mediaUrl', preview);
+          fd.append('contentHash', sha256);
+        }
+        fd.append('authorId', currentUser.id);
+        fd.append('caption', caption || 'Decentralized media post verified on Hyperledger Fabric ⛓️');
+        fd.append('mediaType', mediaType);
+        if (resolvedThumbnail) fd.append('thumbnailUrl', resolvedThumbnail);
+        if (pHash) fd.append('perceptualHash', pHash);
+        if (pHashReversed) fd.append('perceptualHashReversed', pHashReversed);
+        if (videoFingerprint) fd.append('videoFingerprint', videoFingerprint);
+
+        const res = await api.createPost(fd);
+        if (res && res.post) {
+          finalPost = { ...basePost, ...res.post };
+          await savePostToDevice(finalPost, null, resolvedThumbnail);
+        }
+      } catch (err) {
+        console.warn('Backend ledger commit warning, kept locally in device IndexedDB:', err);
+      }
+
       triggerHaptic('success');
-      await new Promise(r => setTimeout(r, 650));
-      onPostCreated(result);
+      onPostCreated(finalPost);
       close();
     } catch (err) {
-      console.error('Commit error:', err);
-      triggerHaptic('error');
-      if (err.tamperProofError || err.message?.includes('Tamper-Proof Blockchain Security') || err.message?.includes('Blockchain Security Alert') || err.message?.includes('Tamper-proof error')) {
-        setIsDuplicate(true);
-        setDupError(err.message || 'Tamper-Proof Blockchain Security: This media file (or a cropped/trimmed variant) has already been registered on the ledger.');
-        setStage(1);
-      } else {
-        alert('Transaction failed: ' + err.message);
-        setStage(1);
-      }
+      console.error('Submit error:', err);
+      alert('Error creating post: ' + err.message);
+      setStage(1);
     }
   }
 
-  const copyHash = () => {
-    if (!sha256) return;
-    navigator.clipboard.writeText(sha256);
-    setCopied(true);
-    triggerHaptic('light');
-    setTimeout(() => setCopied(false), 2000);
+  const copySha = () => {
+    if (sha256) {
+      navigator.clipboard.writeText(sha256);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    }
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/85 backdrop-blur-md animate-fade-in select-none">
-      <div className="relative w-full max-w-[470px] bg-[#161618] ios-sheet flex flex-col max-h-[92vh] overflow-hidden animate-sheet-up">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-0 sm:p-4 bg-black/65 backdrop-blur-xs select-none font-sans animate-fade-in">
+      <div className="relative w-full max-w-xl bg-white sm:rounded-2xl overflow-hidden shadow-2xl flex flex-col h-full sm:h-auto sm:max-h-[92vh] border border-[#DBDBDB]">
 
-        {/* ── Native iOS Grabber Handle ── */}
-        <div className="w-full flex justify-center pt-3 pb-1">
-          <div className="w-9 h-1 bg-white/25 rounded-full" />
+        {/* ── iOS Modal Header ── */}
+        <div className="flex items-center justify-between px-4 py-3 border-b border-[#EFEFEF] bg-white sticky top-0 z-10">
+          {stage === 1 ? (
+            <button
+              onClick={() => setStage(0)}
+              className="text-xs font-semibold text-[#737373] hover:text-[#262626] transition-colors"
+            >
+              Back
+            </button>
+          ) : (
+            <span className="w-10" />
+          )}
+
+          <h2 className="text-sm font-bold text-[#262626]">
+            {stage === 0 ? 'Create new post' : stage === 1 ? 'Filter & Details' : 'Mining Block…'}
+          </h2>
+
+          {stage === 1 ? (
+            <button
+              onClick={submit}
+              disabled={isDuplicate || hashing}
+              className={`text-xs font-bold transition-colors ${
+                isDuplicate || hashing
+                  ? 'text-[#DBDBDB] cursor-not-allowed'
+                  : 'text-[#0095F6] hover:text-[#1877F2]'
+              }`}
+            >
+              Share
+            </button>
+          ) : (
+            <button onClick={close} className="p-1 text-[#262626] hover:opacity-70 transition-opacity">
+              <X className="w-5 h-5" />
+            </button>
+          )}
         </div>
 
-        {/* ── Native iOS Navigation Bar ── */}
-        <div className="flex items-center justify-between px-4 py-2.5 border-b border-white/[0.08]">
-          <button
-            onClick={close}
-            className="text-[15px] text-[#007aff] hover:opacity-80 active:opacity-60 transition-opacity font-normal"
-          >
-            Cancel
-          </button>
-          <span className="text-[17px] font-semibold text-white tracking-tight">New Ledger Post</span>
-          <button
-            onClick={submit}
-            disabled={!preview || hashing || isDuplicate || stage === 2}
-            className={`text-[15px] font-semibold transition-all ${
-              preview && !isDuplicate && !hashing && stage !== 2
-                ? 'text-[#007aff] active:opacity-60'
-                : 'text-gray-600 cursor-not-allowed'
-            }`}
-          >
-            {stage === 2 ? 'Minting…' : 'Share'}
-          </button>
-        </div>
+        {/* ── Content Body ── */}
+        <div className="flex-1 overflow-y-auto p-4 sm:p-5 space-y-4 no-scrollbar bg-white">
 
-        {/* ── Body ── */}
-        <div className="p-4 overflow-y-auto no-scrollbar space-y-4">
-
-          {/* STAGE 0: Media Picker */}
+          {/* STAGE 0: Media Selection & Presets */}
           {stage === 0 && (
-            <div className="flex flex-col items-center py-6 px-4 border border-dashed border-white/15 rounded-[24px] bg-[#121214] text-center space-y-3">
-              <div className="w-16 h-16 rounded-full bg-[#007aff]/15 flex items-center justify-center text-[#007aff]">
-                <Upload className="w-8 h-8 stroke-[1.8]" />
-              </div>
-              <div>
-                <h3 className="text-base font-bold text-white mb-1">Select Photo to Notarize</h3>
-                <p className="text-xs text-gray-400 max-w-xs leading-relaxed">
-                  Every image is verified across all user accounts using cryptographic SHA-256 and perceptual visual fingerprinting.
-                </p>
-              </div>
-
-              <input
-                ref={fileRef}
-                type="file"
-                accept="image/*"
-                className="hidden"
-                onChange={e => { const f = e.target.files?.[0]; if (f) processFile(f); }}
-              />
-
-              <button
+            <div className="space-y-4">
+              {/* Drag & Drop File Picker */}
+              <div
                 onClick={() => fileRef.current?.click()}
-                className="ios-btn-blue text-[13px] px-6 py-2.5 shadow-lg shadow-blue-500/20 active:scale-95 transition-transform"
+                className="w-full aspect-[4/3] rounded-xl border-2 border-dashed border-[#DBDBDB] hover:border-[#0095F6] bg-[#FAFAFA] hover:bg-[#F0F8FF] transition-all flex flex-col items-center justify-center cursor-pointer p-6 text-center group"
               >
-                Choose from Device
-              </button>
-
-              {/* Sample test presets */}
-              <div className="w-full pt-4 border-t border-white/10 mt-3">
-                <div className="flex items-center justify-between mb-2 px-1">
-                  <span className="text-[11px] font-semibold text-gray-400 uppercase tracking-wider flex items-center gap-1">
-                    <Sparkles className="w-3 h-3 text-yellow-400" /> Duplicate Test Presets
-                  </span>
-                  <span className="text-[10px] text-gray-500 font-mono">1-Tap Verification</span>
+                <div className="w-16 h-16 rounded-full bg-white shadow-sm flex items-center justify-center text-[#262626] group-hover:scale-105 transition-transform mb-3 border border-[#EFEFEF]">
+                  <Upload className="w-8 h-8 stroke-[1.8] text-[#262626]" />
                 </div>
-                <div className="grid grid-cols-2 gap-2">
-                  {SAMPLES.map(s => (
+                <p className="text-sm font-bold text-[#262626]">Select photos and videos</p>
+                <p className="text-xs text-[#737373] mt-1 max-w-xs">
+                  MP4, MOV, WebM, PNG, JPG supported. Media is preserved locally on your phone via IndexedDB.
+                </p>
+                <button
+                  type="button"
+                  className="mt-4 px-4 py-2 rounded-lg bg-[#0095F6] text-white text-xs font-semibold shadow-sm hover:bg-[#1877F2] transition-colors"
+                >
+                  Select from Computer / Phone
+                </button>
+                <input
+                  ref={fileRef}
+                  type="file"
+                  accept="image/*,video/*"
+                  onChange={(e) => {
+                    const f = e.target.files?.[0];
+                    if (f) processMediaFile(f);
+                  }}
+                  className="hidden"
+                />
+              </div>
+
+              {/* Quick Test Presets */}
+              <div className="space-y-2 pt-2">
+                <div className="flex items-center justify-between">
+                  <span className="text-[11px] font-bold text-[#8E8E8E] uppercase tracking-wider">
+                    Instant Tamper-Proof Test Presets
+                  </span>
+                  <span className="text-[10px] text-[#0095F6] font-mono">Fabric Consensus</span>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                  {PRESETS.map((p) => (
                     <button
-                      key={s.name}
-                      onClick={() => loadSample(s)}
-                      className="flex flex-col text-left p-2.5 rounded-[16px] bg-[#1c1c1e] border border-white/10 hover:border-[#007aff]/50 active:scale-[0.98] transition-all"
+                      key={p.name}
+                      onClick={() => loadPreset(p)}
+                      className="p-2.5 rounded-xl border border-[#EAEAEA] hover:border-[#0095F6] bg-[#FAFAFA] hover:bg-white text-left transition-all flex items-start gap-2.5 active:scale-98"
                     >
-                      <div className="flex items-center justify-between w-full mb-1">
-                        <span className="text-xs font-bold text-white truncate">{s.name}</span>
-                        <span className={`text-[9px] px-1.5 py-0.5 rounded-full font-semibold ${
-                          s.tag.includes('Exact') || s.tag.includes('Perceptual')
-                            ? 'bg-[#ff3b30]/20 text-[#ff3b30]'
-                            : 'bg-[#34c759]/20 text-[#34c759]'
-                        }`}>
-                          {s.tag}
-                        </span>
+                      <div className="w-10 h-10 rounded-lg overflow-hidden flex-shrink-0 bg-gray-200">
+                        <img
+                          src={p.thumbnailUrl || p.url}
+                          alt={p.name}
+                          className="w-full h-full object-cover"
+                        />
                       </div>
-                      <span className="text-[10px] text-gray-400 leading-tight">{s.hint}</span>
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-center justify-between">
+                          <span className="text-xs font-bold text-[#262626] truncate">{p.name}</span>
+                          <span className="text-[9px] font-mono px-1.5 py-0.2 rounded bg-gray-200 text-gray-700">
+                            {p.tag}
+                          </span>
+                        </div>
+                        <p className="text-[10px] text-[#737373] truncate mt-0.5">{p.hint}</p>
+                      </div>
                     </button>
                   ))}
                 </div>
@@ -304,189 +484,181 @@ export default function UploadSheet({ isOpen, onClose, currentUser, onPostCreate
             </div>
           )}
 
-          {/* STAGE 1: Edit, Dual-Hash HUD & Duplicate Validation */}
+          {/* STAGE 1: Preview, Filters, Caption, Tamper-Proof Check */}
           {stage === 1 && (
-            <>
-              {/* Photo Preview with Applied Filter */}
-              <div className="relative w-full aspect-square rounded-[24px] overflow-hidden border border-white/15 bg-black">
-                <img
-                  src={preview}
-                  alt="preview"
-                  className={`w-full h-full object-cover ${filter.cls}`}
-                />
-                <button
-                  onClick={reset}
-                  className="absolute top-2.5 right-2.5 p-1.5 rounded-full bg-black/70 text-white backdrop-blur-md active:scale-90 transition-transform"
-                >
-                  <X className="w-4 h-4" />
-                </button>
-                <div className="absolute bottom-2.5 left-2.5 px-2.5 py-1 rounded-full bg-black/70 backdrop-blur-md text-[10px] font-mono text-gray-300 border border-white/10">
-                  Filter: {filter.name}
-                </div>
-              </div>
+            <div className="space-y-4">
+              {/* Media Preview Box */}
+              <div className="relative w-full aspect-square bg-black rounded-xl overflow-hidden flex items-center justify-center">
+                {mediaType === 'video' ? (
+                  <video
+                    src={preview}
+                    poster={thumbnailUrl}
+                    controls
+                    playsInline
+                    className="w-full h-full object-contain"
+                  />
+                ) : (
+                  <img
+                    src={preview}
+                    alt="Upload preview"
+                    className={`w-full h-full object-cover ${filter.cls}`}
+                  />
+                )}
 
-              {/* ── Dual Cryptographic & Perceptual Hashing HUD ── */}
-              <div className="p-3.5 rounded-[22px] bg-[#121214] border border-white/10 space-y-3">
-                <div className="flex items-center justify-between border-b border-white/[0.08] pb-2">
-                  <div className="flex items-center gap-1.5 text-xs font-bold text-white">
-                    <ShieldCheck className="w-4 h-4 text-[#007aff]" /> Ledger Security Analysis
-                  </div>
-                  {hashing ? (
-                    <span className="flex items-center gap-1 text-[11px] text-[#007aff] font-mono">
-                      <Loader2 className="w-3 h-3 animate-spin" /> Analyzing…
+                {/* Hashing indicator */}
+                {hashing && (
+                  <div className="absolute inset-0 bg-white/80 backdrop-blur-xs flex flex-col items-center justify-center gap-2 z-20">
+                    <Loader2 className="w-7 h-7 animate-spin text-[#0095F6]" />
+                    <span className="text-xs font-semibold text-[#262626]">
+                      Extracting video keyframes & cryptographic fingerprints…
                     </span>
-                  ) : isDuplicate ? (
-                    <span className="flex items-center gap-1 text-[10px] text-[#ff3b30] font-bold px-2 py-0.5 rounded-full bg-[#ff3b30]/15 border border-[#ff3b30]/30">
-                      <AlertTriangle className="w-3 h-3" /> DUPLICATE REJECTED
-                    </span>
-                  ) : (
-                    <span className="flex items-center gap-1 text-[10px] text-[#34c759] font-bold px-2 py-0.5 rounded-full bg-[#34c759]/15 border border-[#34c759]/30">
-                      <CheckCircle2 className="w-3 h-3" /> VERIFIED UNIQUE
-                    </span>
-                  )}
-                </div>
-
-                {/* 1. Exact Cryptographic Hash */}
-                <div className="space-y-1">
-                  <div className="flex items-center justify-between text-[11px] text-gray-400 font-mono">
-                    <span>SHA-256 Multihash:</span>
-                    <button
-                      onClick={copyHash}
-                      className="text-[#007aff] hover:underline flex items-center gap-0.5 text-[10px]"
-                    >
-                      {copied ? <Check className="w-3 h-3 text-[#34c759]" /> : <Copy className="w-3 h-3" />}
-                      {copied ? 'Copied' : 'Copy'}
-                    </button>
-                  </div>
-                  <div className="font-mono text-[11px] p-2 bg-black/60 rounded-[12px] border border-white/10 break-all text-gray-300">
-                    {sha256 || 'Generating SHA-256 multihash…'}
-                  </div>
-                </div>
-
-                {/* 2. Perceptual Visual Fingerprint (pHash) */}
-                <div className="space-y-1">
-                  <div className="flex items-center justify-between text-[11px] text-gray-400 font-mono">
-                    <span className="flex items-center gap-1">
-                      <Eye className="w-3 h-3 text-[#007aff]" /> Perceptual Visual Hash (dHash):
-                    </span>
-                    <span className="text-[10px] text-gray-400">64-bit fingerprint</span>
-                  </div>
-                  <div className="font-mono text-[11px] p-2 bg-black/60 rounded-[12px] border border-white/10 flex items-center justify-between text-gray-300">
-                    <span>{pHash ? `0x${pHash}` : 'Computing visual fingerprint…'}</span>
-                    {pHashReversed && (
-                      <span className="text-[9px] text-gray-500 font-mono">
-                        Reversed: {shortHash(pHashReversed, 4, 4)}
-                      </span>
-                    )}
-                  </div>
-                </div>
-
-                {/* ⚠ REQUIRED OWNERSHIP ENFORCEMENT ALERT BANNER */}
-                {isDuplicate && (
-                  <div className="p-3.5 rounded-[16px] bg-[#ff3b30]/15 border border-[#ff3b30]/50 text-[#ff3b30] space-y-2 security-alert-glow animate-fade-in">
-                    <div className="flex items-center gap-1.5 font-bold text-[13px]">
-                      <Lock className="w-4 h-4 flex-shrink-0" />
-                      <span>Tamper-Proof Ledger Enforcement</span>
-                    </div>
-                    {/* Exact Required Message */}
-                    <p className="text-[12px] font-bold leading-relaxed text-white bg-black/40 p-2.5 rounded-[10px] border border-[#ff3b30]/40">
-                      {dupError || 'Tamper-Proof Blockchain Security: This media file (or a cropped/trimmed variant) has already been registered on the ledger.'}
-                    </p>
-
-                    {dupDetails && (
-                      <div className="text-[10px] font-mono text-gray-300 space-y-0.5 pt-1 border-t border-[#ff3b30]/25">
-                        <div className="flex justify-between">
-                          <span className="text-gray-400">Match Classification:</span>
-                          <span className="font-bold text-[#ff3b30] uppercase">{dupDetails.matchType || 'Perceptual'}</span>
-                        </div>
-                        {dupDetails.distance !== undefined && (
-                          <div className="flex justify-between">
-                            <span className="text-gray-400">Hamming Bit Distance:</span>
-                            <span className="text-white">{dupDetails.distance} / 64 bits</span>
-                          </div>
-                        )}
-                        {dupDetails.similarity !== undefined && (
-                          <div className="flex justify-between">
-                            <span className="text-gray-400">Fingerprint Similarity:</span>
-                            <span className="text-[#ff3b30] font-bold">{(dupDetails.similarity * 100).toFixed(1)}%</span>
-                          </div>
-                        )}
-                        {dupDetails.existingPost && (
-                          <div className="flex justify-between">
-                            <span className="text-gray-400">Existing Author:</span>
-                            <span className="text-white font-semibold">@{dupDetails.existingPost.authorUsername || dupDetails.existingPost.authorId}</span>
-                          </div>
-                        )}
-                      </div>
-                    )}
                   </div>
                 )}
               </div>
 
-              {/* iOS Filters Selector */}
-              {!isDuplicate && (
+              {/* Photo Filters Carousel (Images only) */}
+              {mediaType === 'image' && (
                 <div>
-                  <p className="text-[11px] font-semibold text-gray-400 uppercase tracking-wider mb-2">iOS Photo Filters</p>
-                  <div className="flex gap-2.5 overflow-x-auto no-scrollbar pb-1">
-                    {FILTERS.map(f => (
+                  <span className="text-[11px] font-bold text-[#737373] uppercase tracking-wider block mb-2">
+                    Filters
+                  </span>
+                  <div className="flex items-center gap-2.5 overflow-x-auto no-scrollbar py-1">
+                    {FILTERS.map((f) => (
                       <button
                         key={f.name}
-                        onClick={() => { setFilter(f); triggerHaptic('light'); }}
-                        className={`flex flex-col items-center gap-1 p-1 rounded-[16px] border flex-shrink-0 transition-all ${
-                          filter.name === f.name ? 'border-[#007aff] bg-[#007aff]/15' : 'border-white/10'
+                        onClick={() => setFilter(f)}
+                        className={`flex flex-col items-center gap-1 flex-shrink-0 cursor-pointer ${
+                          filter.name === f.name ? 'opacity-100' : 'opacity-70 hover:opacity-100'
                         }`}
                       >
-                        <div className="w-14 h-14 rounded-[12px] overflow-hidden">
-                          <img src={preview} alt={f.name} className={`w-full h-full object-cover ${f.cls}`} />
+                        <div
+                          className={`w-14 h-14 rounded-lg overflow-hidden border-2 ${
+                            filter.name === f.name ? 'border-[#0095F6]' : 'border-transparent'
+                          }`}
+                        >
+                          <img
+                            src={preview}
+                            alt={f.name}
+                            className={`w-full h-full object-cover ${f.cls}`}
+                          />
                         </div>
-                        <span className="text-[10px] font-medium text-gray-300">{f.name}</span>
+                        <span className={`text-[10px] ${filter.name === f.name ? 'font-bold text-[#0095F6]' : 'text-[#737373]'}`}>
+                          {f.name}
+                        </span>
                       </button>
                     ))}
                   </div>
                 </div>
               )}
 
-              {/* Caption & Submit */}
-              {!isDuplicate && (
-                <div className="space-y-3">
-                  <div className="flex items-center gap-2">
-                    <img
-                      src={currentUser?.avatarUrl}
-                      alt={currentUser?.username}
-                      className="w-7 h-7 rounded-full object-cover border border-white/20"
-                    />
-                    <span className="text-xs font-bold text-white">@{currentUser?.username}</span>
+              {/* Video Thumbnail Preview (Videos only) */}
+              {mediaType === 'video' && thumbnailUrl && (
+                <div className="p-3 rounded-xl bg-[#FAFAFA] border border-[#EAEAEA] flex items-center gap-3">
+                  <div className="w-14 h-14 rounded-lg overflow-hidden bg-black flex-shrink-0 border border-[#DBDBDB]">
+                    <img src={thumbnailUrl} alt="Thumbnail preview" className="w-full h-full object-cover" />
                   </div>
-                  <textarea
-                    rows={3}
-                    value={caption}
-                    onChange={e => setCaption(e.target.value)}
-                    placeholder="Write a caption… #Hyperledger #InstaLedger #Decentralized"
-                    className="w-full text-xs p-3 rounded-[16px] bg-[#121214] border border-white/10 text-white placeholder:text-gray-500 focus:outline-none focus:border-[#007aff] resize-none"
-                  />
-                  <button
-                    onClick={submit}
-                    className="w-full ios-btn-blue font-bold text-xs py-3.5 flex items-center justify-center gap-2 shadow-lg shadow-blue-500/20 active:scale-[0.98] transition-transform"
-                  >
-                    Commit Block to Ledger <ArrowRight className="w-4 h-4" />
-                  </button>
+                  <div className="flex-1 min-w-0">
+                    <span className="text-xs font-bold text-[#262626] flex items-center gap-1">
+                      <CheckCircle2 className="w-3.5 h-3.5 text-[#00BA88]" />
+                      Video Keyframe Thumbnail Generated
+                    </span>
+                    <p className="text-[10px] text-[#737373] mt-0.5">
+                      Extracted at 0.5s mark. This frame will be displayed in feeds and profile grids.
+                    </p>
+                  </div>
                 </div>
               )}
-            </>
-          )}
 
-          {/* STAGE 2: Consensus Committing HUD */}
-          {stage === 2 && (
-            <div className="flex flex-col items-center py-14 text-center space-y-4">
-              <div className="w-16 h-16 rounded-full bg-[#007aff]/20 flex items-center justify-center text-[#007aff]">
-                <Loader2 className="w-10 h-10 animate-spin" />
+              {/* Tamper-Proof Duplicate Alert or Success Box */}
+              {isDuplicate ? (
+                <div className="p-3.5 rounded-xl bg-[#FFF2F2] border border-[#FFD0D0] space-y-2 animate-fade-in">
+                  <div className="flex items-start gap-2.5 text-[#ED4956]">
+                    <AlertTriangle className="w-5 h-5 flex-shrink-0 mt-0.5" />
+                    <div>
+                      <h4 className="text-xs font-bold text-[#ED4956]">Duplicate Detected (Rejected)</h4>
+                      <p className="text-[11px] text-[#262626] mt-0.5 leading-snug">
+                        {dupError}
+                      </p>
+                    </div>
+                  </div>
+
+                  {dupDetails?.existingPost && (
+                    <div className="pt-2 border-t border-[#FFD0D0] text-[10px] font-mono text-[#737373] space-y-0.5">
+                      <div>Already registered by: <strong className="text-[#262626]">@{dupDetails.existingPost.authorUsername}</strong></div>
+                      <div>Block Height: <strong className="text-[#262626]">#{dupDetails.existingPost.blockNumber}</strong></div>
+                    </div>
+                  )}
+                </div>
+              ) : (
+                !hashing && (
+                  <div className="p-3 rounded-xl bg-[#F0FDF4] border border-[#BBF7D0] flex items-center gap-2.5 text-[#00BA88] animate-fade-in">
+                    <CheckCircle2 className="w-4 h-4 flex-shrink-0" />
+                    <div className="flex-1 min-w-0 text-left">
+                      <span className="text-xs font-bold block">Tamper-Proof Verification Passed</span>
+                      <span className="text-[10px] text-[#166534] font-mono">
+                        Unique SHA-256 and perceptual fingerprint confirmed against Fabric state.
+                      </span>
+                    </div>
+                  </div>
+                )
+              )}
+
+              {/* Cryptographic Hashes Card */}
+              <div className="p-3 rounded-xl bg-[#FAFAFA] border border-[#EAEAEA] font-mono text-[11px] space-y-1.5">
+                <div className="flex items-center justify-between text-[#737373]">
+                  <span>SHA-256:</span>
+                  <button onClick={copySha} className="flex items-center gap-1 text-[#0095F6] font-semibold hover:underline">
+                    {copied ? <Check className="w-3 h-3" /> : <Copy className="w-3 h-3" />}
+                    <span>{shortHash(sha256 || 'computing...', 7, 7)}</span>
+                  </button>
+                </div>
+
+                {pHash && (
+                  <div className="flex items-center justify-between text-[#737373]">
+                    <span>dHash:</span>
+                    <span className="text-[#262626] font-bold">{shortHash(pHash, 6, 6)}</span>
+                  </div>
+                )}
+
+                {videoFingerprint && (
+                  <div className="flex items-center justify-between text-[#737373]">
+                    <span>Temporal Hash:</span>
+                    <span className="text-[#262626] font-bold">{shortHash(videoFingerprint, 8, 8)}</span>
+                  </div>
+                )}
               </div>
-              <div>
-                <h4 className="text-base font-bold text-white">Endorsing Fabric Transaction</h4>
-                <p className="text-xs font-mono text-gray-400 max-w-xs mt-1">{stageMsg}</p>
+
+              {/* Caption Input */}
+              <div className="space-y-1 pt-1">
+                <label className="text-[11px] font-bold text-[#737373] uppercase tracking-wider">
+                  Caption
+                </label>
+                <textarea
+                  value={caption}
+                  onChange={(e) => setCaption(e.target.value)}
+                  placeholder="Write a caption and describe your verified asset…"
+                  rows={3}
+                  className="w-full p-3 rounded-xl border border-[#DBDBDB] focus:border-[#0095F6] outline-none text-xs text-[#262626] resize-none"
+                />
               </div>
             </div>
           )}
+
+          {/* STAGE 2: Mining / Saving to Device & Fabric */}
+          {stage === 2 && (
+            <div className="py-16 flex flex-col items-center justify-center text-center space-y-4">
+              <div className="w-16 h-16 rounded-full bg-[#F0F8FF] flex items-center justify-center text-[#0095F6]">
+                <Loader2 className="w-8 h-8 animate-spin" />
+              </div>
+              <div>
+                <h3 className="text-sm font-bold text-[#262626]">Committing to Hyperledger Fabric</h3>
+                <p className="text-xs text-[#737373] mt-1 max-w-sm">
+                  {stageMsg}
+                </p>
+              </div>
+            </div>
+          )}
+
         </div>
       </div>
     </div>

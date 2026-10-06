@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import {
   Grid, Bookmark, ShieldCheck, CheckCircle2, Heart,
-  MessageCircle, Lock, Trash2, Video, Play, ExternalLink
+  MessageCircle, Lock, Trash2, Play, Film, ChevronDown, UserCheck, Share2
 } from 'lucide-react';
 import { getVideoPosterFallback } from '../../utils/thumbnail';
 
@@ -14,250 +14,279 @@ export default function ProfileView({
   onSelectPost,
   onDeletePost
 }) {
-  const [tab, setTab] = useState('grid');
+  const [tab, setTab] = useState('grid'); // 'grid' | 'reels' | 'saved'
   const [switcher, setSwitcher] = useState(false);
+  const [deletingId, setDeletingId] = useState(null);
 
   const displayUser = user || currentUser;
   const userPosts = posts.filter(p => p.authorId === displayUser?.id);
+  const userReels = userPosts.filter(p => p.mediaType === 'video' || /\.(mp4|webm|mov|m4v)$/i.test(p.mediaUrl || ''));
   const isSelf = currentUser && displayUser && currentUser.id === displayUser.id;
 
   if (!displayUser) return (
-    <div className="flex items-center justify-center py-24 text-[#767676] text-xs">
+    <div className="flex items-center justify-center py-24 text-[#8E8E8E] text-xs">
       Loading profile…
     </div>
   );
 
   const handleDelete = async (e, postId) => {
     e.stopPropagation();
-    if (confirm('Permanently delete this pin from Hyperledger Fabric ledger?')) {
+    if (window.confirm('Delete this post permanently from your phone and the Hyperledger Fabric ledger?')) {
+      setDeletingId(postId);
       try {
         await onDeletePost?.(postId);
       } catch (err) {
         alert('Failed to delete post: ' + err.message);
+      } finally {
+        setDeletingId(null);
       }
     }
   };
 
+  const displayedList = tab === 'reels' ? userReels : userPosts;
+
   return (
-    <div className="w-full max-w-4xl mx-auto pb-24 text-[#111111] select-none bg-white">
-      {/* ── Profile Top Bar / Switcher ── */}
-      <div className="flex items-center justify-between px-4 py-3 border-b border-[#EFEFEF] bg-white sticky top-0 z-20 shadow-[0_1px_2px_rgba(0,0,0,0.02)]">
+    <div className="w-full max-w-2xl mx-auto pb-24 bg-white text-[#262626] select-none font-sans">
+      {/* ── Top Bar with Account Switcher ── */}
+      <div className="flex items-center justify-between px-4 py-2.5 border-b border-[#EFEFEF] bg-white sticky top-0 z-20">
         <button
           onClick={() => setSwitcher(s => !s)}
-          className="flex items-center gap-1.5 hover:bg-[#F0F0F0] px-3 py-1.5 rounded-full transition-colors"
+          className="flex items-center gap-1.5 hover:bg-[#FAFAFA] px-2 py-1 rounded-lg transition-colors"
         >
-          <span className="font-extrabold text-base tracking-tight text-[#111111]">{displayUser.username}</span>
-          <CheckCircle2 className="w-4 h-4 text-[#E60023] fill-[#E60023]" />
-          <span className="text-xs text-[#767676]">▾</span>
+          <span className="font-bold text-base tracking-tight text-[#262626]">{displayUser.username}</span>
+          <CheckCircle2 className="w-3.5 h-3.5 text-[#0095F6] fill-[#0095F6]" />
+          <ChevronDown className="w-3.5 h-3.5 text-[#737373]" />
         </button>
+
         <button
           onClick={() => setSwitcher(s => !s)}
-          className="text-xs text-[#E60023] font-bold px-3 py-1.5 rounded-full hover:bg-[#FFF0F2] transition-colors"
+          className="text-xs text-[#0095F6] font-semibold px-2.5 py-1 rounded-md hover:bg-[#0095F6]/10 transition-colors"
         >
           Switch Identity
         </button>
       </div>
 
-      {/* ── Switcher Dropdown Modal ── */}
+      {/* ── Fabric Account Switcher Dropdown ── */}
       {switcher && (
-        <div className="mx-4 mt-2 p-3 rounded-2xl bg-white border border-[#EAEAEA] space-y-1.5 animate-fade-in shadow-xl">
-          <p className="text-[10px] font-bold text-[#767676] uppercase tracking-wider px-2 mb-1.5">
-            Switch Hyperledger Fabric Identity
+        <div className="mx-4 mt-2 p-2.5 rounded-2xl bg-white border border-[#DBDBDB] space-y-1 animate-fade-in shadow-xl">
+          <p className="text-[10px] font-bold text-[#8E8E8E] uppercase tracking-wider px-2 py-1">
+            Fabric Peer Identities
           </p>
           {allUsers.map(u => (
             <button
               key={u.id}
               onClick={() => { onSwitchUser?.(u); setSwitcher(false); }}
-              className={`w-full flex items-center justify-between p-2.5 rounded-xl transition-colors ${
-                u.id === currentUser?.id ? 'bg-[#FFF0F2] border border-[#FFDADA]' : 'hover:bg-[#F8F8F8]'
+              className={`w-full flex items-center justify-between p-2 rounded-xl transition-colors ${
+                u.id === currentUser?.id ? 'bg-[#FAFAFA] border border-[#E5E5E5]' : 'hover:bg-[#FAFAFA]'
               }`}
             >
               <div className="flex items-center gap-2.5">
                 <img src={u.avatarUrl} alt={u.username} className="w-8 h-8 rounded-full object-cover" />
                 <div className="text-left">
-                  <div className="text-xs font-bold text-[#111111] flex items-center gap-1">
+                  <div className="text-xs font-bold text-[#262626] flex items-center gap-1">
                     @{u.username}
-                    {u.id === currentUser?.id && <span className="text-[10px] text-[#E60023] font-normal">(Active)</span>}
+                    {u.id === currentUser?.id && <span className="text-[10px] text-[#0095F6] font-normal">(Active)</span>}
                   </div>
-                  <div className="text-[10px] text-[#767676]">{u.displayName}</div>
+                  <div className="text-[10px] text-[#737373]">{u.displayName}</div>
                 </div>
               </div>
-              <span className="text-[10px] font-mono text-[#27ae60] font-bold">Org1MSP</span>
+              <span className="text-[10px] font-mono text-[#00BA88] font-bold">Org1MSP</span>
             </button>
           ))}
         </div>
       )}
 
-      {/* ── Pinterest Profile Header ── */}
-      <div className="px-4 pt-8 pb-6 flex flex-col items-center text-center space-y-4">
-        {/* Large Centered Avatar */}
-        <div className="w-28 h-28 rounded-full p-1 ring-2 ring-[#E60023]/20 shadow-md">
-          <img
-            src={displayUser.avatarUrl}
-            alt={displayUser.username}
-            className="w-full h-full rounded-full object-cover"
-          />
+      {/* ── Profile Bio & Stats Header ── */}
+      <div className="px-4 pt-4 pb-2">
+        <div className="flex items-center justify-between gap-4">
+          {/* Avatar with Story Ring */}
+          <div className="w-[78px] h-[78px] rounded-full ig-story-ring p-[2.5px] flex-shrink-0">
+            <div className="w-full h-full bg-white rounded-full p-[2px]">
+              <img
+                src={displayUser.avatarUrl}
+                alt={displayUser.username}
+                className="w-full h-full rounded-full object-cover"
+              />
+            </div>
+          </div>
+
+          {/* Stats: Posts, Followers, Following */}
+          <div className="flex-1 flex justify-around text-center">
+            <div>
+              <span className="block text-[15px] font-bold text-[#262626]">{userPosts.length}</span>
+              <span className="text-[12px] text-[#737373]">posts</span>
+            </div>
+            <div>
+              <span className="block text-[15px] font-bold text-[#262626]">{displayUser.followerCount ?? 142}</span>
+              <span className="text-[12px] text-[#737373]">followers</span>
+            </div>
+            <div>
+              <span className="block text-[15px] font-bold text-[#262626]">{displayUser.followingCount ?? 89}</span>
+              <span className="text-[12px] text-[#737373]">following</span>
+            </div>
+          </div>
         </div>
 
-        <div>
-          <h1 className="text-2xl font-extrabold text-[#111111] tracking-tight">{displayUser.displayName}</h1>
-          <div className="flex items-center justify-center gap-1.5 mt-1">
-            <span className="text-xs font-semibold text-[#767676] font-mono">@{displayUser.username}</span>
-            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-green-50 text-[10px] font-mono text-green-700 font-bold border border-green-200">
-              <ShieldCheck className="w-3 h-3 text-[#27ae60]" /> {displayUser.mspId || 'Org1MSP'}
+        {/* Name and Bio */}
+        <div className="mt-3 space-y-0.5">
+          <div className="flex items-center gap-1.5">
+            <h1 className="text-sm font-bold text-[#262626]">{displayUser.displayName}</h1>
+            <span className="px-1.5 py-0.2 rounded bg-green-50 text-[9px] font-mono font-bold text-[#00BA88] border border-green-200">
+              Org1MSP
             </span>
           </div>
+          <p className="text-xs text-[#737373] font-mono">@{displayUser.username}</p>
           {displayUser.bio && (
-            <p className="text-xs text-[#555555] max-w-md mx-auto mt-2 leading-relaxed">
+            <p className="text-xs text-[#262626] leading-snug pt-1">
               {displayUser.bio}
             </p>
           )}
+          <p className="text-[11px] text-[#0095F6] font-medium pt-0.5 flex items-center gap-1">
+            <ShieldCheck className="w-3 h-3 text-[#00BA88]" />
+            <span>Hyperledger Fabric Verified Node · Raft Consensus</span>
+          </p>
         </div>
 
-        {/* Minimalist Stats Row */}
-        <div className="flex items-center gap-4 text-center">
-          <div className="px-4 py-2 rounded-2xl bg-[#F0F0F0]">
-            <span className="text-sm font-extrabold text-[#111111] block font-mono">{userPosts.length}</span>
-            <span className="text-[10px] text-[#767676] font-semibold uppercase tracking-wider">Pins</span>
-          </div>
-          <div className="px-4 py-2 rounded-2xl bg-[#F0F0F0]">
-            <span className="text-sm font-extrabold text-[#111111] block font-mono">{displayUser.followerCount ?? 3}</span>
-            <span className="text-[10px] text-[#767676] font-semibold uppercase tracking-wider">Followers</span>
-          </div>
-          <div className="px-4 py-2 rounded-2xl bg-[#F0F0F0]">
-            <span className="text-sm font-extrabold text-[#111111] block font-mono">{displayUser.followingCount ?? 2}</span>
-            <span className="text-[10px] text-[#767676] font-semibold uppercase tracking-wider">Following</span>
-          </div>
-        </div>
-
-        {/* Action Buttons */}
-        <div className="flex gap-2 pt-1">
+        {/* Profile Action Buttons */}
+        <div className="flex gap-2 mt-4">
           <button
             onClick={() => setSwitcher(true)}
-            className="px-5 py-2 rounded-full bg-[#F0F0F0] hover:bg-[#E2E2E2] text-xs font-bold text-[#111111] transition-all active:scale-95"
+            className="flex-1 py-1.5 rounded-lg bg-[#EFEFEF] hover:bg-[#DBDBDB] text-xs font-semibold text-[#262626] transition-colors text-center active:scale-98"
           >
-            Switch Profile
+            Switch Identity
           </button>
           <button
             onClick={() => navigator.clipboard?.writeText(window.location.href)}
-            className="px-5 py-2 rounded-full bg-[#F0F0F0] hover:bg-[#E2E2E2] text-xs font-bold text-[#111111] transition-all active:scale-95"
+            className="flex-1 py-1.5 rounded-lg bg-[#EFEFEF] hover:bg-[#DBDBDB] text-xs font-semibold text-[#262626] transition-colors text-center active:scale-98"
           >
             Share Profile
           </button>
         </div>
+
+        {/* Story Highlights Bar */}
+        <div className="flex items-center gap-4 overflow-x-auto no-scrollbar pt-4 pb-2 border-b border-[#EFEFEF]">
+          {[
+            { title: 'Genesis', img: 'https://images.unsplash.com/photo-1639762681485-074b7f938ba0?w=120&auto=format&fit=crop&q=80' },
+            { title: 'Fabric 2.5', img: 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=120&auto=format&fit=crop&q=80' },
+            { title: 'Proofs', img: 'https://images.unsplash.com/photo-1542051841857-5f90071e7989?w=120&auto=format&fit=crop&q=80' }
+          ].map((hl) => (
+            <div key={hl.title} className="flex flex-col items-center gap-1 flex-shrink-0 cursor-pointer active:scale-95 transition-transform">
+              <div className="w-[56px] h-[56px] rounded-full p-[2px] border border-[#DBDBDB]">
+                <img src={hl.img} alt={hl.title} className="w-full h-full rounded-full object-cover" />
+              </div>
+              <span className="text-[11px] text-[#262626] font-normal">{hl.title}</span>
+            </div>
+          ))}
+        </div>
       </div>
 
-      {/* ── Pinterest Board Tabs ── */}
-      <div className="flex justify-center border-b border-[#EFEFEF] mt-2 mb-6">
+      {/* ── 3 Tabs: Grid (Posts), Reels, Saved ── */}
+      <div className="flex border-t border-[#EFEFEF] text-[#737373]">
         <button
           onClick={() => setTab('grid')}
-          className={`px-6 py-3 font-bold text-sm border-b-2 transition-all flex items-center gap-2 ${
+          className={`flex-1 py-2.5 flex items-center justify-center transition-colors border-t-[1.5px] ${
             tab === 'grid'
-              ? 'border-[#111111] text-[#111111]'
-              : 'border-transparent text-[#767676] hover:text-[#111111]'
+              ? 'border-[#262626] text-[#262626]'
+              : 'border-transparent text-[#8E8E8E]'
           }`}
+          aria-label="Posts grid"
         >
-          <Grid className="w-4 h-4" />
-          <span>Created Pins ({userPosts.length})</span>
+          <Grid className="w-5 h-5 stroke-[1.8]" />
+        </button>
+
+        <button
+          onClick={() => setTab('reels')}
+          className={`flex-1 py-2.5 flex items-center justify-center transition-colors border-t-[1.5px] ${
+            tab === 'reels'
+              ? 'border-[#262626] text-[#262626]'
+              : 'border-transparent text-[#8E8E8E]'
+          }`}
+          aria-label="Reels grid"
+        >
+          <Film className="w-5 h-5 stroke-[1.8]" />
         </button>
 
         <button
           onClick={() => setTab('saved')}
-          className={`px-6 py-3 font-bold text-sm border-b-2 transition-all flex items-center gap-2 ${
+          className={`flex-1 py-2.5 flex items-center justify-center transition-colors border-t-[1.5px] ${
             tab === 'saved'
-              ? 'border-[#111111] text-[#111111]'
-              : 'border-transparent text-[#767676] hover:text-[#111111]'
+              ? 'border-[#262626] text-[#262626]'
+              : 'border-transparent text-[#8E8E8E]'
           }`}
+          aria-label="Saved posts"
         >
-          <Bookmark className="w-4 h-4" />
-          <span>Saved to Ledger</span>
+          <Bookmark className="w-5 h-5 stroke-[1.8]" />
         </button>
       </div>
 
-      {/* ── Pinterest Masonry Grid of Pins ── */}
-      {tab === 'grid' ? (
-        userPosts.length === 0 ? (
-          <div className="py-20 text-center space-y-3">
-            <p className="text-xs text-[#767676]">No pins committed to Hyperledger Fabric by this creator yet.</p>
+      {/* ── 3-Column Square Instagram Grid ── */}
+      {tab !== 'saved' ? (
+        displayedList.length === 0 ? (
+          <div className="py-20 text-center space-y-2">
+            <p className="text-xs text-[#8E8E8E]">
+              {tab === 'reels' ? 'No video reels recorded on Fabric yet.' : 'No posts shared yet.'}
+            </p>
           </div>
         ) : (
-          <div className="masonry-columns px-3 md:px-6">
-            {userPosts.map(post => {
+          <div className="ig-profile-grid">
+            {displayedList.map((post) => {
               const isVideo = post.mediaType === 'video' || /\.(mp4|webm|mov|m4v)$/i.test(post.mediaUrl || '');
               const thumb = post.thumbnailUrl || (isVideo ? getVideoPosterFallback(post.caption, post.id) : post.mediaUrl);
+              const isDeletingThis = deletingId === post.id;
 
               return (
                 <div
                   key={post.id}
                   onClick={() => onSelectPost?.(post)}
-                  className="masonry-brick group cursor-pointer mb-4"
+                  className={`ig-grid-item group ${isDeletingThis ? 'opacity-30 pointer-events-none' : ''}`}
                 >
-                  <div className="bg-white rounded-[20px] border border-[#EFEFEF] overflow-hidden shadow-sm hover:shadow-xl transition-all duration-300">
-                    {/* Media Thumbnail */}
-                    <div className="relative aspect-[4/5] bg-[#F5F5F5] overflow-hidden">
-                      <img
-                        src={thumb}
-                        alt={post.caption || 'pin'}
-                        className={`w-full h-full object-cover group-hover:scale-105 transition-transform duration-500 f-${post.filterName?.toLowerCase() || 'normal'}`}
-                        loading="lazy"
-                      />
+                  <img
+                    src={thumb}
+                    alt={post.caption || 'grid media'}
+                    className={`w-full h-full object-cover transition-transform duration-300 group-hover:scale-105 f-${post.filterName?.toLowerCase() || 'normal'}`}
+                    loading="lazy"
+                  />
 
-                      {/* Video Indicator */}
-                      {isVideo && (
-                        <div className="absolute top-2.5 left-2.5 px-2 py-0.5 rounded-full bg-black/60 backdrop-blur-md text-white text-[10px] font-mono font-bold flex items-center gap-1 border border-white/20">
-                          <Play className="w-3 h-3 fill-white" /> VIDEO
-                        </div>
-                      )}
-
-                      {/* Block Height Pill */}
-                      <div className="absolute bottom-2.5 left-2.5 bg-white/90 backdrop-blur-md px-2 py-0.5 rounded-full text-[9px] font-mono font-bold text-[#111111] border border-black/5">
-                        #{post.blockNumber ?? '0'} Fabric
-                      </div>
-
-                      {/* Delete Button (Trash Icon) for owner */}
-                      {isSelf && (
-                        <button
-                          onClick={(e) => handleDelete(e, post.id)}
-                          className="absolute top-2.5 right-2.5 p-2 rounded-full bg-white/90 hover:bg-[#E60023] text-red-600 hover:text-white shadow-md transition-all active:scale-90"
-                          title="Delete post permanently from ledger"
-                        >
-                          <Trash2 className="w-3.5 h-3.5" />
-                        </button>
-                      )}
+                  {/* Video Reel Icon badge in top right */}
+                  {isVideo && (
+                    <div className="absolute top-2 right-2 text-white drop-shadow-[0_2px_4px_rgba(0,0,0,0.6)]">
+                      <Film className="w-4 h-4 fill-white" />
                     </div>
+                  )}
 
-                    {/* Pin Caption & Likes Footer */}
-                    <div className="p-3 space-y-1.5">
-                      {post.caption && (
-                        <p className="text-xs font-semibold text-[#111111] line-clamp-2 leading-snug">
-                          {post.caption}
-                        </p>
-                      )}
-
-                      <div className="flex items-center justify-between text-[11px] text-[#767676] pt-1">
-                        <span className="flex items-center gap-1 font-semibold">
-                          <Heart className={`w-3 h-3 ${post.likeCount > 0 ? 'fill-[#E60023] text-[#E60023]' : ''}`} />
-                          {post.likeCount || 0}
-                        </span>
-
-                        <span className="flex items-center gap-1 font-semibold">
-                          <MessageCircle className="w-3 h-3" />
-                          {post.commentCount || 0}
-                        </span>
-                      </div>
-                    </div>
+                  {/* Hover Overlay with Like & Comment Count */}
+                  <div className="absolute inset-0 bg-black/35 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-4 text-white font-bold text-xs pointer-events-none">
+                    <span className="flex items-center gap-1">
+                      <Heart className="w-4 h-4 fill-white" />
+                      {post.likeCount || 0}
+                    </span>
+                    <span className="flex items-center gap-1">
+                      <MessageCircle className="w-4 h-4 fill-white" />
+                      {post.commentCount || 0}
+                    </span>
                   </div>
+
+                  {/* Delete Button (visible on hover for post owner) */}
+                  {isSelf && (
+                    <button
+                      onClick={(e) => handleDelete(e, post.id)}
+                      className="absolute bottom-2 right-2 p-1.5 rounded-full bg-black/60 hover:bg-[#ED4956] text-white opacity-0 group-hover:opacity-100 transition-all active:scale-90 z-10"
+                      title="Delete post permanently"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </button>
+                  )}
                 </div>
               );
             })}
           </div>
         )
       ) : (
-        <div className="p-12 text-center space-y-3 bg-[#F8F8F8] rounded-2xl mx-4 border border-[#EAEAEA]">
-          <Lock className="w-8 h-8 text-[#E60023] mx-auto" />
-          <p className="font-bold text-sm text-[#111111]">Saved to Ledger</p>
-          <p className="text-xs text-[#767676] leading-relaxed max-w-sm mx-auto">
-            Saved pins are indexed immutably on the Hyperledger Fabric ledger under your identity composite key.
+        <div className="p-12 text-center space-y-2 bg-[#FAFAFA] rounded-xl mx-4 mt-4 border border-[#EAEAEA]">
+          <Lock className="w-7 h-7 text-[#0095F6] mx-auto" />
+          <p className="font-bold text-sm text-[#262626]">Saved to Ledger</p>
+          <p className="text-xs text-[#737373] max-w-sm mx-auto">
+            Bookmarked media and block proofs are indexed in your local device storage.
           </p>
         </div>
       )}

@@ -1,68 +1,139 @@
 import { useState, useEffect } from 'react';
-import { RefreshCw, Monitor, Layers, Plus, ShieldCheck, Heart, Sparkles } from 'lucide-react';
+import { RefreshCw, Smartphone, Monitor } from 'lucide-react';
 
 import DesktopTitleBar      from './components/desktop/DesktopTitleBar';
 import DesktopSidebar       from './components/desktop/DesktopSidebar';
 import DesktopInspectorPane from './components/desktop/DesktopInspectorPane';
-import DesktopPostCard      from './components/desktop/DesktopPostCard';
-import DesktopUploadModal   from './components/desktop/DesktopUploadModal';
 
 import StatusBar            from './components/ios/StatusBar';
 import NavHeader            from './components/ios/NavHeader';
 import StoriesBar           from './components/ios/StoriesBar';
+import PostCard             from './components/ios/PostCard';
 import BottomTabBar         from './components/ios/BottomTabBar';
 import LedgerModal          from './components/ios/LedgerModal';
 import CommentsSheet        from './components/ios/CommentsSheet';
 import ProfileView          from './components/ios/ProfileView';
 import ExploreView          from './components/ios/ExploreView';
+import UploadSheet          from './components/ios/UploadSheet';
 
 import { api } from './services/api';
+import { getDevicePosts, deletePostFromDevice, savePostToDevice } from './services/localStorageService';
+
+const DEFAULT_USERS = [
+  {
+    id: 'user_ranna',
+    username: 'ranna',
+    displayName: 'Raana Nayak',
+    avatarUrl: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80',
+    bio: 'Decentralized media creator & core architect on Hyperledger Fabric ⛓️',
+    followerCount: 284,
+    followingCount: 142
+  },
+  {
+    id: 'user_elena',
+    username: 'elena_crypto',
+    displayName: 'Elena Rostova',
+    avatarUrl: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=150&auto=format&fit=crop&q=80',
+    bio: 'Distributed systems & cryptographic proof researcher · Org1MSP',
+    followerCount: 512,
+    followingCount: 220
+  },
+  {
+    id: 'user_marcus',
+    username: 'marcus_art',
+    displayName: 'Marcus Chen',
+    avatarUrl: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150&auto=format&fit=crop&q=80',
+    bio: 'Digital artist & tamper-proof NFT archival photographer',
+    followerCount: 189,
+    followingCount: 95
+  }
+];
 
 export default function App() {
-  const [tab,           setTab]           = useState('feed');
+  const [tab,           setTab]           = useState('feed'); // 'feed' | 'explore' | 'activity' | 'profile'
   const [viewMode,      setViewMode]      = useState('desktop'); // 'desktop' | 'compact'
   const [posts,         setPosts]         = useState([]);
-  const [users,         setUsers]         = useState([]);
-  const [currentUser,   setCurrentUser]   = useState(null);
+  const [users,         setUsers]         = useState(DEFAULT_USERS);
+  const [currentUser,   setCurrentUser]   = useState(DEFAULT_USERS[0]);
   const [loadingFeed,   setLoadingFeed]   = useState(true);
   const [searchQuery,   setSearchQuery]   = useState('');
 
-  // Modal states
+  // Modals
   const [uploadOpen,    setUploadOpen]    = useState(false);
   const [ledgerOpen,    setLedgerOpen]    = useState(false);
   const [commentPost,   setCommentPost]   = useState(null);
   const [selectedPost,  setSelectedPost]  = useState(null);
 
-  // ── Init ──
+  // ── Init: Load local phone storage (IndexedDB) & backend users ──
   useEffect(() => {
     const init = async () => {
+      // 1. Load posts saved locally on the user's phone / browser
+      try {
+        const localPosts = await getDevicePosts();
+        if (localPosts && localPosts.length > 0) {
+          setPosts(localPosts);
+        }
+      } catch (err) {
+        console.warn('Local device storage load warning:', err);
+      }
+
+      // 2. Fetch users and active identities
       try {
         const loadedUsers = await api.getUsers();
-        const userList = loadedUsers?.users || loadedUsers || [];
-        setUsers(userList);
-        if (userList.length > 0) setCurrentUser(userList[0]);
+        const userList = loadedUsers?.users || loadedUsers;
+        if (Array.isArray(userList) && userList.length > 0) {
+          setUsers(userList);
+          setCurrentUser(userList[0]);
+        }
       } catch (err) {
-        console.error('Init error:', err);
+        console.warn('Using offline fallback identities:', err);
       }
     };
     init();
   }, []);
 
-  // ── Load feed when currentUser changes ──
+  // ── Load & sync feed with local phone storage ──
   const refreshFeed = async (uid) => {
     setLoadingFeed(true);
     try {
-      const result = await api.getFeed(uid || currentUser?.id);
-      setPosts(result?.posts || result || []);
+      const viewerId = uid || currentUser?.id;
+      let serverPosts = [];
+      try {
+        const result = await api.getFeed(viewerId);
+        serverPosts = result?.posts || result || [];
+      } catch (apiErr) {
+        console.warn('API getFeed offline/fallback:', apiErr);
+      }
+
+      // Get posts stored on device
+      const devicePosts = await getDevicePosts();
+
+      // Merge unique posts by ID: local phone uploads take precedence
+      const mergedMap = new Map();
+      devicePosts.forEach(p => mergedMap.set(p.id, p));
+      serverPosts.forEach(p => {
+        if (!mergedMap.has(p.id)) {
+          mergedMap.set(p.id, p);
+        } else {
+          mergedMap.set(p.id, { ...mergedMap.get(p.id), ...p });
+        }
+      });
+
+      const combined = Array.from(mergedMap.values());
+      // Sort newest first
+      combined.sort((a, b) => new Date(b.timestamp || 0) - new Date(a.timestamp || 0));
+      setPosts(combined);
     } catch (err) {
-      console.error('Feed error:', err);
+      console.error('Feed refresh error:', err);
     } finally {
       setLoadingFeed(false);
     }
   };
 
   useEffect(() => {
-    if (currentUser?.id) refreshFeed(currentUser.id);
+    if (currentUser?.id) {
+      refreshFeed(currentUser.id);
+    }
   }, [currentUser?.id]);
 
   // ── Like toggle ──
@@ -71,36 +142,50 @@ export default function App() {
     setPosts(prev => prev.map(p => {
       if (p.id !== postId) return p;
       const liked = !p.isLikedByViewer;
-      return { ...p, isLikedByViewer: liked, likeCount: liked ? p.likeCount + 1 : Math.max(0, p.likeCount - 1) };
+      const updated = {
+        ...p,
+        isLikedByViewer: liked,
+        likeCount: liked ? (p.likeCount || 0) + 1 : Math.max(0, (p.likeCount || 0) - 1)
+      };
+      // Persist like status to local storage
+      savePostToDevice(updated).catch(() => {});
+      return updated;
     }));
+
     try {
       await api.toggleLike(postId, currentUser.id);
     } catch (err) {
-      console.error('Like error:', err);
-      refreshFeed();
+      console.warn('Like sync warning:', err);
     }
   };
 
-  // ── Delete Post Action (Immediate UI & Ledger removal) ──
+  // ── Delete Post Action (Immediate UI & Local Device Removal) ──
   const handleDeletePost = async (postId) => {
-    if (!currentUser) return;
-    // Optimistic removal from state
+    // 1. Optimistic removal from UI state
     setPosts(prev => prev.filter(p => p.id !== postId));
+
+    // 2. Permanently delete from local phone storage (IndexedDB)
     try {
-      await api.deletePost(postId, currentUser.id);
+      await deletePostFromDevice(postId);
+    } catch (e) {
+      console.warn('Error deleting from device storage:', e);
+    }
+
+    // 3. Submit deletion to Hyperledger Fabric ledger
+    try {
+      await api.deletePost(postId, currentUser?.id);
     } catch (err) {
-      console.error('Delete post error on ledger:', err);
-      // Revert if failed
-      refreshFeed();
-      throw err;
+      console.warn('Ledger delete warning:', err);
     }
   };
 
-  // ── Post created ──
-  const handlePostCreated = (result) => {
-    const newPost = result?.post ?? result;
-    if (newPost) setPosts(prev => [newPost, ...prev]);
+  // ── Post Created Action ──
+  const handlePostCreated = (newPost) => {
+    if (newPost) {
+      setPosts(prev => [newPost, ...prev.filter(p => p.id !== newPost.id)]);
+    }
     setTab('feed');
+    window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
   const openLedger = (post) => {
@@ -108,7 +193,7 @@ export default function App() {
     setLedgerOpen(true);
   };
 
-  // Filter posts by search query if typed
+  // Search filter
   const displayedPosts = posts.filter(p => {
     if (!searchQuery) return true;
     const q = searchQuery.toLowerCase();
@@ -120,16 +205,16 @@ export default function App() {
   });
 
   return (
-    <div className="min-h-screen w-full bg-[#FFFFFF] flex flex-col items-center justify-start p-0 select-none text-[#111111]">
-      {/* ── Main Container (Pinterest Clean White Aesthetic) ── */}
+    <div className="min-h-screen w-full bg-[#FFFFFF] flex flex-col items-center justify-start p-0 select-none text-[#262626] font-sans">
+      {/* ── Main Container (Pristine White Background & iOS Instagram Aesthetic) ── */}
       <div
         className={`w-full transition-all duration-300 flex flex-col relative overflow-hidden bg-white ${
           viewMode === 'desktop'
             ? 'h-screen max-w-full'
-            : 'max-w-[470px] min-h-screen md:min-h-[880px] md:h-[90vh] md:my-6 md:rounded-[36px] border border-[#EAEAEA] shadow-[0_20px_50px_rgba(0,0,0,0.08)]'
+            : 'max-w-[440px] min-h-screen md:min-h-[850px] md:h-[92vh] md:my-5 md:rounded-[46px] border-[10px] md:border-[12px] border-[#1C1C1E] shadow-[0_25px_60px_rgba(0,0,0,0.18)]'
         }`}
       >
-        {/* ── Pinterest Clean Header ── */}
+        {/* ── Top Navigation Bar ── */}
         {viewMode === 'desktop' ? (
           <DesktopTitleBar
             channelName="mychannel"
@@ -145,17 +230,23 @@ export default function App() {
             onOpenUpload={() => setUploadOpen(true)}
           />
         ) : (
-          <NavHeader
-            onOpenLedger={() => setLedgerOpen(true)}
-            onOpenActivity={() => setLedgerOpen(true)}
-            unread={2}
-          />
+          <>
+            <StatusBar onDynamicIslandClick={() => setLedgerOpen(true)} />
+            <NavHeader
+              onOpenLedger={() => setLedgerOpen(true)}
+              onOpenActivity={() => setLedgerOpen(true)}
+              onOpenUpload={() => setUploadOpen(true)}
+              onRefresh={() => refreshFeed()}
+              loadingFeed={loadingFeed}
+              unread={1}
+            />
+          </>
         )}
 
-        {/* ── DESKTOP SPLIT / MASONRY LAYOUT ── */}
+        {/* ── DESKTOP INSTAGRAM LAYOUT ── */}
         {viewMode === 'desktop' ? (
           <div className="flex-1 flex overflow-hidden bg-white">
-            {/* Left: Navigation Sidebar */}
+            {/* Left: Instagram Desktop Sidebar */}
             <DesktopSidebar
               activeTab={tab}
               setActiveTab={setTab}
@@ -167,56 +258,39 @@ export default function App() {
               blockCount={posts.length + 1}
             />
 
-            {/* Center: Pinterest Masonry Scroll Area */}
-            <main className="flex-1 overflow-y-auto no-scrollbar bg-white p-4 lg:p-6 border-r border-[#EFEFEF]">
-              <div className="max-w-[1280px] mx-auto space-y-5">
+            {/* Center: Single-Column Instagram Feed Area */}
+            <main className="flex-1 overflow-y-auto no-scrollbar bg-white p-0 sm:py-6 flex justify-center">
+              <div className="w-full max-w-[470px] space-y-4">
                 {/* FEED TAB */}
                 {tab === 'feed' && (
                   <>
+                    {/* Story Tray at Top of Feed */}
                     <StoriesBar
                       currentUser={currentUser}
                       onOpenUpload={() => setUploadOpen(true)}
                     />
 
-                    {/* Channel Ledger Ticker */}
-                    <div className="flex items-center justify-between px-4 py-2.5 text-xs text-[#555555] font-mono rounded-2xl bg-[#F8F8F8] border border-[#EAEAEA]">
-                      <span className="flex items-center gap-2">
-                        <span className="w-2 h-2 rounded-full bg-[#27ae60] animate-pulse" />
-                        Fabric channel: <strong className="text-[#111111]">mychannel</strong>
-                        <span className="text-gray-300">|</span>
-                        <span>Consensus: Raft Orderer · Org1MSP Verified</span>
-                      </span>
-
-                      <button
-                        onClick={() => refreshFeed()}
-                        className="flex items-center gap-1.5 font-bold text-[#111111] hover:text-[#E60023] transition-colors"
-                      >
-                        <RefreshCw className={`w-3.5 h-3.5 ${loadingFeed ? 'animate-spin text-[#E60023]' : ''}`} />
-                        <span>Sync</span>
-                      </button>
-                    </div>
-
-                    {/* Pinterest Masonry Grid of Pin Cards */}
+                    {/* Single-Column Feed */}
                     {loadingFeed && posts.length === 0 ? (
-                      <div className="flex flex-col items-center justify-center py-24 text-[#767676] text-xs gap-3">
-                        <div className="w-8 h-8 border-3 border-[#E60023] border-t-transparent rounded-full animate-spin" />
-                        <span>Synchronising Hyperledger Fabric blocks…</span>
+                      <div className="flex flex-col items-center justify-center py-24 text-[#8E8E8E] text-xs gap-3">
+                        <div className="w-7 h-7 border-2 border-[#0095F6] border-t-transparent rounded-full animate-spin" />
+                        <span>Synchronising Hyperledger Fabric feed…</span>
                       </div>
                     ) : displayedPosts.length === 0 ? (
                       <div className="py-24 text-center space-y-2">
-                        <p className="text-sm font-bold text-[#111111]">No pins found</p>
-                        <p className="text-xs text-[#767676]">Be the first to publish a verified pin to the ledger!</p>
+                        <p className="text-sm font-bold text-[#262626]">No Posts Yet</p>
+                        <p className="text-xs text-[#737373]">Share your photos or video reels to the Fabric ledger!</p>
                         <button
                           onClick={() => setUploadOpen(true)}
-                          className="mt-3 px-5 py-2 rounded-full bg-[#E60023] text-white font-bold text-xs shadow-md"
+                          className="mt-3 px-4 py-2 rounded-lg bg-[#0095F6] text-white font-semibold text-xs shadow-xs hover:bg-[#1877F2]"
                         >
-                          Create Pin
+                          Create Post
                         </button>
                       </div>
                     ) : (
-                      <div className="masonry-columns w-full">
+                      <div className="space-y-4 pb-12">
                         {displayedPosts.map(post => (
-                          <DesktopPostCard
+                          <PostCard
                             key={post.id}
                             post={post}
                             currentUser={currentUser}
@@ -236,7 +310,25 @@ export default function App() {
                   <ExploreView posts={posts} onSelectPost={openLedger} />
                 )}
 
-                {/* PROFILE TAB */}
+                {/* ACTIVITY / LEDGER TAB */}
+                {tab === 'activity' && (
+                  <div className="p-4 space-y-4">
+                    <div className="p-4 rounded-2xl bg-[#FAFAFA] border border-[#DBDBDB] text-center space-y-2">
+                      <h3 className="text-sm font-bold text-[#262626]">Hyperledger Activity & Endorsements</h3>
+                      <p className="text-xs text-[#737373]">
+                        All transactions, endorsements, and duplicate checks are logged immutably on channel <strong>mychannel</strong>.
+                      </p>
+                      <button
+                        onClick={() => setLedgerOpen(true)}
+                        className="px-4 py-2 rounded-lg bg-[#0095F6] text-white text-xs font-semibold"
+                      >
+                        Open Ledger Explorer
+                      </button>
+                    </div>
+                  </div>
+                )}
+
+                {/* PROFILE TAB (3-Column Square Grid) */}
                 {tab === 'profile' && (
                   <ProfileView
                     user={currentUser}
@@ -251,7 +343,7 @@ export default function App() {
               </div>
             </main>
 
-            {/* Right: Desktop Inspector Widget Pane */}
+            {/* Right: Desktop Inspector & Accounts Sidebar */}
             <DesktopInspectorPane
               currentUser={currentUser}
               users={users}
@@ -262,46 +354,66 @@ export default function App() {
             />
           </div>
         ) : (
-          /* ── COMPACT IPAD / IPHONE VIEW ── */
+          /* ── NATIVE IPHONE 16 PRO MOBILE VIEW ── */
           <div className="flex-1 flex flex-col overflow-hidden relative bg-white">
-            <StatusBar onDynamicIslandClick={() => setLedgerOpen(true)} />
-
-            <main className="flex-1 overflow-y-auto no-scrollbar pb-24 bg-white">
+            <main className="flex-1 overflow-y-auto no-scrollbar pb-20 bg-white">
               {tab === 'feed' && (
-                <div className="p-3">
+                <>
                   <StoriesBar
                     currentUser={currentUser}
                     onOpenUpload={() => setUploadOpen(true)}
                   />
 
-                  <div className="flex items-center justify-between px-3 py-2 text-[11px] text-[#555555] font-mono border-b border-[#EFEFEF] mb-3">
-                    <span className="flex items-center gap-1.5">
-                      <span className="w-1.5 h-1.5 rounded-full bg-[#27ae60] animate-pulse" />
-                      Fabric: <strong className="text-[#111111]">mychannel</strong>
-                    </span>
-                    <button onClick={() => refreshFeed()} className="flex items-center gap-1 hover:text-[#E60023] font-bold">
-                      <RefreshCw className={`w-3 h-3 ${loadingFeed ? 'animate-spin text-[#E60023]' : ''}`} />
-                      Sync
-                    </button>
-                  </div>
-
-                  <div className="space-y-4">
-                    {displayedPosts.map(post => (
-                      <DesktopPostCard
-                        key={post.id}
-                        post={post}
-                        currentUser={currentUser}
-                        onLikeToggle={handleLike}
-                        onOpenComments={p => setCommentPost(p)}
-                        onOpenLedger={openLedger}
-                        onDeletePost={handleDeletePost}
-                      />
-                    ))}
-                  </div>
-                </div>
+                  {loadingFeed && posts.length === 0 ? (
+                    <div className="flex flex-col items-center justify-center py-24 text-[#8E8E8E] text-xs gap-3">
+                      <div className="w-6 h-6 border-2 border-[#0095F6] border-t-transparent rounded-full animate-spin" />
+                      <span>Loading feed…</span>
+                    </div>
+                  ) : displayedPosts.length === 0 ? (
+                    <div className="py-24 text-center space-y-2 px-4">
+                      <p className="text-sm font-bold text-[#262626]">No Posts Yet</p>
+                      <p className="text-xs text-[#737373]">Post a photo or video to store locally on your phone!</p>
+                      <button
+                        onClick={() => setUploadOpen(true)}
+                        className="mt-3 px-4 py-2 rounded-lg bg-[#0095F6] text-white font-semibold text-xs shadow-xs"
+                      >
+                        Create Post
+                      </button>
+                    </div>
+                  ) : (
+                    <div>
+                      {displayedPosts.map(post => (
+                        <PostCard
+                          key={post.id}
+                          post={post}
+                          currentUser={currentUser}
+                          onLikeToggle={handleLike}
+                          onOpenComments={p => setCommentPost(p)}
+                          onOpenLedger={openLedger}
+                          onDeletePost={handleDeletePost}
+                        />
+                      ))}
+                    </div>
+                  )}
+                </>
               )}
 
               {tab === 'explore' && <ExploreView posts={posts} onSelectPost={openLedger} />}
+
+              {tab === 'activity' && (
+                <div className="p-4 space-y-3">
+                  <div className="p-4 rounded-xl bg-[#FAFAFA] border border-[#E5E5E5] text-center space-y-2">
+                    <p className="text-xs font-bold text-[#262626]">Fabric Ledger Status</p>
+                    <p className="text-[11px] text-[#737373]">Raft Consensus · Org1MSP Verified Endorsements</p>
+                    <button
+                      onClick={() => setLedgerOpen(true)}
+                      className="px-3 py-1.5 rounded-lg bg-[#0095F6] text-white text-xs font-semibold"
+                    >
+                      Inspect Blocks
+                    </button>
+                  </div>
+                </div>
+              )}
 
               {tab === 'profile' && (
                 <ProfileView
@@ -316,18 +428,19 @@ export default function App() {
               )}
             </main>
 
+            {/* iOS Frosted-Glass Bottom Tab Bar */}
             <BottomTabBar
               active={tab}
               onTab={setTab}
               onOpenUpload={() => setUploadOpen(true)}
               currentUser={currentUser}
-              blockCount={posts.length + 1}
+              unreadActivity={1}
             />
           </div>
         )}
 
-        {/* ── Dialog Modals ── */}
-        <DesktopUploadModal
+        {/* ── Native iOS Modals & Sheets ── */}
+        <UploadSheet
           isOpen={uploadOpen}
           onClose={() => setUploadOpen(false)}
           currentUser={currentUser}
@@ -347,7 +460,7 @@ export default function App() {
           onCommentAdded={() => {
             if (commentPost) {
               setPosts(prev => prev.map(p =>
-                p.id === commentPost.id ? { ...p, commentCount: p.commentCount + 1 } : p
+                p.id === commentPost.id ? { ...p, commentCount: (p.commentCount || 0) + 1 } : p
               ));
             }
           }}

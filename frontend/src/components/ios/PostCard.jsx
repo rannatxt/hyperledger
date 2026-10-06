@@ -2,61 +2,115 @@ import { useState, useRef } from 'react';
 import {
   Heart, MessageCircle, Send, Bookmark,
   MoreHorizontal, CheckCircle2, ShieldCheck,
-  Copy, Check, Lock, ExternalLink, Eye
+  Trash2, Volume2, VolumeX, Play, Copy, Check, Lock, ExternalLink
 } from 'lucide-react';
 import { shortHash, relativeTime } from '../../utils/crypto';
+import { getVideoPosterFallback } from '../../utils/thumbnail';
 
 const FILTER_MAP = {
   Normal: 'f-normal', Clarendon: 'f-clarendon', Gingham: 'f-gingham',
   Moon: 'f-moon', Juno: 'f-juno', Noir: 'f-noir', Vivid: 'f-vivid',
 };
 
-export default function PostCard({ post, currentUser, onLikeToggle, onOpenComments, onOpenLedger }) {
+export default function PostCard({
+  post,
+  currentUser,
+  onLikeToggle,
+  onOpenComments,
+  onOpenLedger,
+  onDeletePost
+}) {
   const [showHeart, setShowHeart] = useState(false);
   const [saved, setSaved] = useState(false);
-  const [showReceipt, setShowReceipt] = useState(false);
+  const [menuOpen, setMenuOpen] = useState(false);
+  const [isPlaying, setIsPlaying] = useState(false);
+  const [isMuted, setIsMuted] = useState(true);
   const [copiedSha, setCopiedSha] = useState(false);
-  const [copiedPHash, setCopiedPHash] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [showProof, setShowProof] = useState(false);
+
+  const videoRef = useRef(null);
   const lastTap = useRef(0);
 
-  const handleTap = () => {
+  const isVideo = post.mediaType === 'video' || /\.(mp4|webm|mov|m4v)$/i.test(post.mediaUrl || '');
+  const isOwner = currentUser && post.authorId === currentUser.id;
+
+  const displayThumbnail = post.thumbnailUrl || (isVideo ? getVideoPosterFallback(post.caption, post.id) : post.mediaUrl);
+
+  const triggerHaptic = (type = 'light') => {
+    if (typeof navigator !== 'undefined' && navigator.vibrate) {
+      if (type === 'heart') navigator.vibrate([15, 30]);
+      else navigator.vibrate([8]);
+    }
+  };
+
+  // Double tap to like gesture
+  const handleMediaTap = () => {
     const now = Date.now();
     if (now - lastTap.current < 320) {
       setShowHeart(true);
-      if (typeof navigator !== 'undefined' && navigator.vibrate) {
-        navigator.vibrate([15, 30]);
+      triggerHaptic('heart');
+      if (!post.isLikedByViewer) {
+        onLikeToggle?.(post.id);
       }
-      if (!post.isLikedByViewer) onLikeToggle(post.id);
-      setTimeout(() => setShowHeart(false), 900);
+      setTimeout(() => setShowHeart(false), 850);
+    } else {
+      if (isVideo) {
+        toggleVideoPlayback();
+      }
     }
     lastTap.current = now;
   };
 
-  const copySha = (e) => {
-    e.stopPropagation();
-    navigator.clipboard.writeText(post.contentHash);
-    setCopiedSha(true);
-    setTimeout(() => setCopiedSha(false), 2000);
+  const toggleVideoPlayback = () => {
+    if (!videoRef.current) return;
+    if (videoRef.current.paused) {
+      videoRef.current.play().then(() => setIsPlaying(true)).catch(() => {});
+    } else {
+      videoRef.current.pause();
+      setIsPlaying(false);
+    }
   };
 
-  const copyPHash = (e) => {
+  const toggleAudio = (e) => {
     e.stopPropagation();
-    if (post.perceptualHash) {
-      navigator.clipboard.writeText(post.perceptualHash);
-      setCopiedPHash(true);
-      setTimeout(() => setCopiedPHash(false), 2000);
+    if (!videoRef.current) return;
+    videoRef.current.muted = !videoRef.current.muted;
+    setIsMuted(videoRef.current.muted);
+  };
+
+  const handleDelete = async () => {
+    if (isDeleting) return;
+    if (window.confirm('Delete this post permanently from your phone and the Hyperledger Fabric ledger?')) {
+      setIsDeleting(true);
+      setMenuOpen(false);
+      try {
+        await onDeletePost?.(post.id);
+      } catch (err) {
+        setIsDeleting(false);
+        alert('Failed to delete post: ' + err.message);
+      }
+    }
+  };
+
+  const copySha = (e) => {
+    e.stopPropagation();
+    if (post.contentHash) {
+      navigator.clipboard.writeText(post.contentHash);
+      setCopiedSha(true);
+      setTimeout(() => setCopiedSha(false), 2000);
     }
   };
 
   const filterClass = FILTER_MAP[post.filterName] || 'f-normal';
 
   return (
-    <article className="w-full bg-black border-b border-white/[0.08] pb-2.5 select-none font-sans">
-      {/* ── Header ── */}
-      <div className="flex items-center justify-between px-3.5 py-2.5">
+    <article className={`w-full bg-white ig-card select-none font-sans transition-opacity duration-300 ${isDeleting ? 'opacity-30 pointer-events-none' : ''}`}>
+      {/* ── Post Header ── */}
+      <div className="flex items-center justify-between px-3.5 py-3">
         <div className="flex items-center gap-2.5 cursor-pointer">
-          <div className="w-8 h-8 rounded-full story-ring p-[1.5px]">
-            <div className="w-full h-full bg-black rounded-full p-[1.5px]">
+          <div className="w-[38px] h-[38px] rounded-full ig-story-ring p-[2px]">
+            <div className="w-full h-full bg-white rounded-full p-[1.5px]">
               <img
                 src={post.authorAvatar}
                 alt={post.authorUsername}
@@ -66,182 +120,273 @@ export default function PostCard({ post, currentUser, onLikeToggle, onOpenCommen
           </div>
           <div>
             <div className="flex items-center gap-1">
-              <span className="text-[13px] font-semibold text-white tracking-tight">{post.authorUsername}</span>
-              <CheckCircle2 className="w-3.5 h-3.5 text-[#007aff] fill-[#007aff]" />
+              <span className="text-[13px] font-bold text-[#262626] tracking-tight">
+                {post.authorUsername}
+              </span>
+              <CheckCircle2 className="w-3.5 h-3.5 text-[#0095F6] fill-[#0095F6]" />
             </div>
-            <div className="flex items-center gap-1 text-[10px] text-gray-400 font-mono">
-              <span className="w-1.5 h-1.5 rounded-full bg-[#34c759]" />
-              Block #{post.blockNumber ?? '0'}
+            <div className="flex items-center gap-1.5 text-[10px] text-[#737373] font-mono">
+              <span className="w-1.5 h-1.5 rounded-full bg-[#00BA88]" />
+              <span>Block #{post.blockNumber ?? '0'}</span>
               <span>· Org1MSP</span>
             </div>
           </div>
         </div>
+
         <button
-          onClick={() => onOpenLedger?.(post)}
-          className="text-gray-500 hover:text-white p-1 active:scale-90 transition-transform"
+          onClick={() => setMenuOpen(true)}
+          className="text-[#262626] p-1.5 active:scale-90 transition-transform"
+          aria-label="More options"
         >
-          <MoreHorizontal className="w-5 h-5" />
+          <MoreHorizontal className="w-5 h-5 text-[#262626]" />
         </button>
       </div>
 
-      {/* ── Media ── */}
-      <div onClick={handleTap} className="relative w-full aspect-square bg-[#0a0a0a] overflow-hidden cursor-pointer">
-        <img
-          src={post.mediaUrl}
-          alt="post media"
-          className={`w-full h-full object-cover ${filterClass}`}
-        />
+      {/* ── Media Display ── */}
+      <div
+        onClick={handleMediaTap}
+        className="relative w-full aspect-square bg-[#FAFAFA] overflow-hidden cursor-pointer flex items-center justify-center"
+      >
+        {isVideo ? (
+          <>
+            <video
+              ref={videoRef}
+              src={post.mediaUrl}
+              poster={displayThumbnail}
+              loop
+              muted={isMuted}
+              playsInline
+              webkit-playsinline="true"
+              className="w-full h-full object-cover"
+              onPlay={() => setIsPlaying(true)}
+              onPause={() => setIsPlaying(false)}
+            />
 
-        {/* Double-tap floating heart with spring burst */}
+            {/* Play/Pause overlay badge */}
+            {!isPlaying && (
+              <div className="absolute inset-0 flex items-center justify-center bg-black/15 pointer-events-none">
+                <div className="w-14 h-14 rounded-full bg-black/50 backdrop-blur-md flex items-center justify-center text-white">
+                  <Play className="w-6 h-6 fill-white ml-0.5" />
+                </div>
+              </div>
+            )}
+
+            {/* Audio Toggle */}
+            <button
+              onClick={toggleAudio}
+              className="absolute bottom-3 right-3 p-2 rounded-full bg-black/60 hover:bg-black/80 text-white backdrop-blur-md transition-all active:scale-90 z-10"
+              aria-label={isMuted ? 'Unmute' : 'Mute'}
+            >
+              {isMuted ? <VolumeX className="w-3.5 h-3.5" /> : <Volume2 className="w-3.5 h-3.5 text-white" />}
+            </button>
+
+            {/* Reel Badge */}
+            <div className="absolute top-3 right-3 px-2 py-0.5 rounded-full bg-black/60 backdrop-blur-md text-white text-[10px] font-semibold flex items-center gap-1 pointer-events-none">
+              <Play className="w-2.5 h-2.5 fill-white" />
+              <span>REEL</span>
+            </div>
+          </>
+        ) : (
+          <img
+            src={post.mediaUrl}
+            alt={post.caption || 'post'}
+            className={`w-full h-full object-cover ${filterClass}`}
+            loading="lazy"
+          />
+        )}
+
+        {/* Double-tap Floating Heart Animation */}
         {showHeart && (
           <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-20">
-            <Heart className="w-28 h-28 text-white fill-white drop-shadow-[0_0_28px_rgba(255,45,85,0.95)] animate-heart-burst" />
-          </div>
-        )}
-
-        {/* Filter badge */}
-        {post.filterName && post.filterName !== 'Normal' && (
-          <div className="absolute top-2.5 right-2.5 px-2 py-0.5 rounded-full bg-black/60 backdrop-blur-md text-[9px] font-mono text-gray-300 border border-white/10 pointer-events-none">
-            {post.filterName}
+            <Heart className="w-24 h-24 text-white fill-white drop-shadow-[0_4px_24px_rgba(0,0,0,0.5)] animate-heart-burst" />
           </div>
         )}
       </div>
 
-      {/* ── Tamper-proof ribbon & Perceptual Proof ── */}
-      <div className="px-3.5 pt-2">
-        <button
-          onClick={() => setShowReceipt(r => !r)}
-          className="w-full flex items-center justify-between px-3 py-1.5 rounded-[12px] bg-[#141416] border border-white/[0.08] hover:border-[#007aff]/40 transition-all active:scale-[0.99]"
-        >
-          <div className="flex items-center gap-2 text-[11px] font-mono">
-            <ShieldCheck className="w-3.5 h-3.5 text-[#34c759]" />
-            <span className="text-gray-400">SHA-256:</span>
-            <span className="text-[#007aff] font-semibold">{shortHash(post.contentHash, 6, 6)}</span>
-            {post.perceptualHash && (
-              <>
-                <span className="text-gray-600">|</span>
-                <span className="text-gray-400 flex items-center gap-0.5">
-                  <Eye className="w-3 h-3 text-purple-400" /> {shortHash(post.perceptualHash, 4, 4)}
-                </span>
-              </>
-            )}
-          </div>
-          <span className="text-[10px] text-gray-500 flex items-center gap-0.5 hover:text-[#007aff]">
-            Ledger Proof <ExternalLink className="w-2.5 h-2.5" />
-          </span>
-        </button>
-
-        {/* Expanded Dual-Proof Receipt */}
-        {showReceipt && (
-          <div className="mt-2 p-3 rounded-[16px] bg-[#18181a] border border-white/10 text-[11px] font-mono space-y-2 animate-fade-in shadow-xl">
-            <div className="flex items-center justify-between pb-1.5 border-b border-white/10 text-xs font-sans font-bold text-white">
-              <span className="flex items-center gap-1.5">
-                <Lock className="w-3.5 h-3.5 text-[#34c759]" /> Immutable Ledger Receipt
-              </span>
-              <span className="text-[10px] font-mono text-[#34c759] font-normal">COMMITTED</span>
-            </div>
-
-            {/* SHA-256 */}
-            <div className="space-y-0.5">
-              <div className="flex items-center justify-between text-[10px] text-gray-400">
-                <span>Cryptographic SHA-256:</span>
-                <button onClick={copySha} className="text-[#007aff] hover:underline flex items-center gap-0.5">
-                  {copiedSha ? <Check className="w-3 h-3 text-[#34c759]" /> : <Copy className="w-3 h-3" />}
-                  {copiedSha ? 'Copied' : 'Copy'}
-                </button>
-              </div>
-              <div className="text-[#34c759] break-all bg-black/40 p-1.5 rounded-[8px] border border-white/5 text-[10px]">
-                {post.contentHash}
-              </div>
-            </div>
-
-            {/* Perceptual Hash */}
-            {post.perceptualHash && (
-              <div className="space-y-0.5">
-                <div className="flex items-center justify-between text-[10px] text-gray-400">
-                  <span className="flex items-center gap-1">
-                    <Eye className="w-3 h-3 text-purple-400" /> Perceptual Visual Hash (dHash):
-                  </span>
-                  <button onClick={copyPHash} className="text-[#007aff] hover:underline flex items-center gap-0.5">
-                    {copiedPHash ? <Check className="w-3 h-3 text-[#34c759]" /> : <Copy className="w-3 h-3" />}
-                    {copiedPHash ? 'Copied' : 'Copy'}
-                  </button>
-                </div>
-                <div className="text-purple-300 break-all bg-black/40 p-1.5 rounded-[8px] border border-white/5 text-[10px]">
-                  0x{post.perceptualHash}
-                </div>
-              </div>
-            )}
-
-            <div className="flex justify-between text-[10px] text-gray-400 pt-1 border-t border-white/5">
-              <span>Channel: mychannel</span>
-              <span>Peer: Org1MSP (peer0.org1)</span>
-            </div>
-          </div>
-        )}
-      </div>
-
-      {/* ── Action bar ── */}
-      <div className="flex items-center justify-between px-3.5 pt-2">
+      {/* ── Action Buttons Bar ── */}
+      <div className="flex items-center justify-between px-3.5 pt-2.5 pb-1 text-[#262626]">
         <div className="flex items-center gap-4">
+          {/* Like */}
           <button
-            onClick={() => onLikeToggle(post.id)}
+            onClick={() => { triggerHaptic('heart'); onLikeToggle?.(post.id); }}
             className="active:scale-125 transition-transform"
             aria-label="Like"
           >
             <Heart
-              className={`w-6 h-6 stroke-[1.8] transition-colors ${
-                post.isLikedByViewer ? 'fill-[#ff3b30] text-[#ff3b30]' : 'text-white'
+              className={`w-[25px] h-[25px] transition-colors ${
+                post.isLikedByViewer
+                  ? 'fill-[#ED4956] text-[#ED4956]'
+                  : 'text-[#262626] stroke-[1.8]'
               }`}
             />
           </button>
+
+          {/* Comment */}
           <button
-            onClick={() => onOpenComments?.(post)}
-            className="hover:text-gray-300 active:scale-95 transition-transform"
+            onClick={() => { triggerHaptic(); onOpenComments?.(post); }}
+            className="active:scale-125 transition-transform text-[#262626]"
             aria-label="Comment"
           >
-            <MessageCircle className="w-6 h-6 stroke-[1.8] -rotate-90" />
+            <MessageCircle className="w-[24px] h-[24px] stroke-[1.8]" />
           </button>
+
+          {/* Share / Ledger */}
           <button
-            onClick={() => onOpenLedger?.(post)}
-            className="hover:text-gray-300 active:scale-95 transition-transform"
+            onClick={() => { triggerHaptic(); onOpenLedger?.(post); }}
+            className="active:scale-125 transition-transform text-[#262626]"
             aria-label="Share"
           >
-            <Send className="w-6 h-6 stroke-[1.8] -rotate-12" />
+            <Send className="w-[23px] h-[23px] stroke-[1.8] -rotate-12" />
           </button>
         </div>
+
+        {/* Bookmark */}
         <button
-          onClick={() => setSaved(s => !s)}
-          className="active:scale-90 transition-transform"
+          onClick={() => { triggerHaptic(); setSaved(!saved); }}
+          className="active:scale-125 transition-transform text-[#262626]"
           aria-label="Save"
         >
-          <Bookmark className={`w-6 h-6 stroke-[1.8] ${saved ? 'fill-white' : ''}`} />
+          <Bookmark
+            className={`w-[24px] h-[24px] stroke-[1.8] ${
+              saved ? 'fill-[#262626] text-[#262626]' : 'text-[#262626]'
+            }`}
+          />
         </button>
       </div>
 
-      {/* ── Metadata & Caption ── */}
-      <div className="px-3.5 pt-1.5 space-y-0.5">
-        <p className="text-[13px] font-semibold text-white">
-          {post.likeCount?.toLocaleString() ?? 0} likes
-        </p>
-        <p className="text-[13px] leading-relaxed">
-          <span className="font-semibold text-white mr-1.5 cursor-pointer hover:underline">
-            {post.authorUsername}
-          </span>
-          <span className="text-gray-200">{post.caption}</span>
-        </p>
-        {post.commentCount > 0 && (
-          <button
-            onClick={() => onOpenComments?.(post)}
-            className="text-[13px] text-gray-400 hover:text-gray-300"
-          >
-            View all {post.commentCount} comments
-          </button>
-        )}
-        <p className="text-[10px] uppercase tracking-wider text-gray-500 font-medium pt-0.5">
-          {relativeTime(post.timestamp)} · Committed to Ledger
-        </p>
+      {/* ── Likes Count ── */}
+      <div className="px-3.5 py-0.5">
+        <span className="text-[13px] font-bold text-[#262626]">
+          {post.likeCount || 0} {post.likeCount === 1 ? 'like' : 'likes'}
+        </span>
       </div>
+
+      {/* ── Caption ── */}
+      <div className="px-3.5 py-0.5 text-[13px] text-[#262626] leading-snug">
+        <span className="font-bold mr-1.5 cursor-pointer">{post.authorUsername}</span>
+        <span>{post.caption}</span>
+      </div>
+
+      {/* ── Tamper-Proof Cryptographic Ledger Banner ── */}
+      <div className="px-3.5 pt-1.5 pb-1">
+        <button
+          onClick={() => setShowProof(!showProof)}
+          className="w-full flex items-center justify-between px-2.5 py-1.5 rounded-lg bg-[#FAFAFA] border border-[#EAEAEA] hover:border-[#0095F6]/40 transition-all text-left"
+        >
+          <div className="flex items-center gap-1.5 text-[11px] font-mono text-[#262626]">
+            <ShieldCheck className="w-3.5 h-3.5 text-[#00BA88] flex-shrink-0" />
+            <span className="text-[#737373]">Fabric Proof:</span>
+            <span className="text-[#0095F6] font-semibold">{shortHash(post.contentHash, 5, 5)}</span>
+          </div>
+
+          <div className="flex items-center gap-1 text-[10px] text-[#737373] font-mono">
+            <span>Verified</span>
+            <CheckCircle2 className="w-3 h-3 text-[#00BA88]" />
+          </div>
+        </button>
+
+        {/* Expanded Ledger Verification Details */}
+        {showProof && (
+          <div className="mt-1 p-2.5 rounded-lg bg-[#FAFAFA] border border-[#E5E5E5] space-y-1 text-[11px] font-mono animate-fade-in">
+            <div className="flex items-center justify-between text-[#737373]">
+              <span>SHA-256 (IPFS CID):</span>
+              <button onClick={copySha} className="flex items-center gap-1 text-[#0095F6] hover:underline">
+                {copiedSha ? <Check className="w-3 h-3" /> : <Copy className="w-3 h-3" />}
+                <span>{shortHash(post.contentHash, 8, 8)}</span>
+              </button>
+            </div>
+
+            {post.perceptualHash && (
+              <div className="flex items-center justify-between text-[#737373]">
+                <span>dHash (Perceptual):</span>
+                <span className="text-[#262626] font-bold">{shortHash(post.perceptualHash, 6, 6)}</span>
+              </div>
+            )}
+
+            {post.videoFingerprint && (
+              <div className="flex items-center justify-between text-[#737373]">
+                <span>Temporal Frames:</span>
+                <span className="text-[#262626] font-bold">Sequence Verified</span>
+              </div>
+            )}
+
+            <button
+              onClick={() => onOpenLedger?.(post)}
+              className="w-full mt-1.5 pt-1 border-t border-[#EAEAEA] flex items-center justify-center gap-1 text-[10px] font-bold text-[#0095F6]"
+            >
+              <ExternalLink className="w-3 h-3" />
+              <span>Inspect Block #{post.blockNumber} on Fabric Ledger</span>
+            </button>
+          </div>
+        )}
+      </div>
+
+      {/* ── Comments Preview ── */}
+      <div className="px-3.5 py-0.5">
+        <button
+          onClick={() => { triggerHaptic(); onOpenComments?.(post); }}
+          className="text-[12px] text-[#737373] hover:text-[#262626] transition-colors"
+        >
+          {post.commentCount > 0
+            ? `View all ${post.commentCount} comments`
+            : 'Add a comment…'}
+        </button>
+      </div>
+
+      {/* ── Timestamp ── */}
+      <div className="px-3.5 pb-3 pt-0.5">
+        <span className="text-[10px] uppercase tracking-wider text-[#8E8E8E] font-medium font-sans">
+          {relativeTime(post.timestamp || Date.now())}
+        </span>
+      </div>
+
+      {/* ── iOS Action Sheet Modal ── */}
+      {menuOpen && (
+        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/50 backdrop-blur-xs animate-fade-in">
+          <div className="w-full max-w-sm bg-white rounded-t-[20px] sm:rounded-[20px] overflow-hidden divide-y divide-[#EFEFEF] shadow-2xl animate-sheet-up">
+            {isOwner && (
+              <button
+                onClick={handleDelete}
+                className="w-full py-3.5 text-center text-sm font-bold text-[#ED4956] hover:bg-[#FAFAFA] active:bg-[#F0F0F0] transition-colors flex items-center justify-center gap-2"
+              >
+                <Trash2 className="w-4 h-4" />
+                <span>Delete Post</span>
+              </button>
+            )}
+
+            <button
+              onClick={() => { setMenuOpen(false); onOpenLedger?.(post); }}
+              className="w-full py-3.5 text-center text-sm font-medium text-[#262626] hover:bg-[#FAFAFA] active:bg-[#F0F0F0] transition-colors"
+            >
+              Inspect on Hyperledger Fabric
+            </button>
+
+            <button
+              onClick={(e) => { copySha(e); setMenuOpen(false); }}
+              className="w-full py-3.5 text-center text-sm font-medium text-[#262626] hover:bg-[#FAFAFA] active:bg-[#F0F0F0] transition-colors"
+            >
+              Copy SHA-256 Hash
+            </button>
+
+            <button
+              onClick={() => {
+                navigator.clipboard?.writeText(window.location.href);
+                setMenuOpen(false);
+              }}
+              className="w-full py-3.5 text-center text-sm font-medium text-[#262626] hover:bg-[#FAFAFA] active:bg-[#F0F0F0] transition-colors"
+            >
+              Share Post
+            </button>
+
+            <button
+              onClick={() => setMenuOpen(false)}
+              className="w-full py-3.5 text-center text-sm font-semibold text-[#737373] hover:bg-[#FAFAFA] active:bg-[#F0F0F0] transition-colors"
+            >
+              Cancel
+            </button>
+          </div>
+        </div>
+      )}
     </article>
   );
 }

@@ -1,6 +1,13 @@
-import { Heart, Send, ShieldCheck, Lock } from 'lucide-react';
+import { Heart, Send, PlusSquare, ShieldCheck, ChevronDown, RefreshCw } from 'lucide-react';
 
-export default function NavHeader({ onOpenLedger, onOpenActivity, unread = 2 }) {
+export default function NavHeader({
+  onOpenLedger,
+  onOpenActivity,
+  onOpenUpload,
+  onRefresh,
+  loadingFeed = false,
+  unread = 1
+}) {
   const triggerHaptic = () => {
     if (typeof navigator !== 'undefined' && navigator.vibrate) {
       navigator.vibrate([10]);
@@ -8,42 +15,74 @@ export default function NavHeader({ onOpenLedger, onOpenActivity, unread = 2 }) 
   };
 
   return (
-    <nav className="w-full bg-white border-b border-[#EFEFEF] px-4 py-3 flex items-center justify-between sticky top-0 z-30 select-none shadow-[0_1px_3px_rgba(0,0,0,0.02)]">
-      {/* Brand + channel pill */}
-      <div className="flex items-center gap-2.5">
-        <div className="w-7 h-7 rounded-full bg-[#E60023] text-white flex items-center justify-center font-bold text-xs">
-          <span>⛓</span>
+    <nav className="w-full ios-frosted-nav px-4 py-2.5 flex items-center justify-between sticky top-0 z-30 select-none">
+      {/* Brand Logo & Channel Indicator */}
+      <div className="flex items-center gap-2">
+        <div className="flex items-baseline gap-1.5 cursor-pointer" onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}>
+          <span className="text-[22px] font-bold tracking-tight text-[#262626] font-serif italic">
+            Instagram
+          </span>
+          <span className="text-[10px] font-sans font-bold uppercase tracking-wider px-1.5 py-0.5 rounded-full bg-[#EFEFEF] text-[#737373] border border-[#DBDBDB]/60">
+            Ledger
+          </span>
         </div>
-        <h1 className="text-lg font-extrabold tracking-tight text-[#111111]">
-          Insta<span className="text-[#E60023]">Ledger</span>
-        </h1>
+
         <button
-          onClick={() => { triggerHaptic(); onOpenLedger(); }}
-          className="flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-[#F0F0F0] text-[10px] font-mono font-bold text-[#111111] hover:bg-[#E2E2E2] active:scale-95 transition-all"
+          onClick={() => { triggerHaptic(); onOpenLedger?.(); }}
+          className="flex items-center gap-1 ml-1 px-2 py-0.5 rounded-full bg-[#FAFAFA] hover:bg-[#EFEFEF] text-[10px] font-mono text-[#737373] border border-[#E5E5E5] transition-all active:scale-95"
+          title="Fabric Channel: mychannel"
         >
-          <Lock className="w-2.5 h-2.5 text-[#E60023]" />
-          mychannel
+          <span className="w-1.5 h-1.5 rounded-full bg-[#00BA88] animate-pulse" />
+          <span>mychannel</span>
+          <ChevronDown className="w-2.5 h-2.5 text-[#8E8E8E]" />
         </button>
       </div>
 
-      {/* Action icons */}
-      <div className="flex items-center gap-3 text-[#111111]">
+      {/* Action Icons */}
+      <div className="flex items-center gap-4 text-[#262626]">
+        {/* Sync Feed button */}
+        {onRefresh && (
+          <button
+            onClick={() => { triggerHaptic(); onRefresh(); }}
+            className="p-1 text-[#262626] active:scale-90 transition-transform"
+            aria-label="Sync Feed"
+            title="Sync with Fabric Ledger"
+          >
+            <RefreshCw className={`w-[20px] h-[20px] stroke-[1.8] ${loadingFeed ? 'animate-spin text-[#0095F6]' : ''}`} />
+          </button>
+        )}
+
+        {/* Upload Post */}
+        {onOpenUpload && (
+          <button
+            onClick={() => { triggerHaptic(); onOpenUpload(); }}
+            className="p-1 active:scale-90 transition-transform"
+            aria-label="New Post"
+          >
+            <PlusSquare className="w-[22px] h-[22px] stroke-[1.8]" />
+          </button>
+        )}
+
+        {/* Activity / Heart */}
         <button
-          onClick={() => { triggerHaptic(); onOpenActivity(); }}
-          className="relative p-1.5 active:scale-90 transition-transform"
+          onClick={() => { triggerHaptic(); onOpenActivity?.(); }}
+          className="relative p-1 active:scale-90 transition-transform"
           aria-label="Activity"
         >
-          <Heart className="w-5 h-5 stroke-[2]" />
+          <Heart className="w-[23px] h-[23px] stroke-[1.9]" />
           {unread > 0 && (
-            <span className="absolute top-1 right-1 w-2 h-2 bg-[#E60023] rounded-full ring-2 ring-white" />
+            <span className="absolute top-1 right-1 w-2 h-2 bg-[#ED4956] rounded-full ring-2 ring-white" />
           )}
         </button>
+
+        {/* Direct / Ledger Explorer */}
         <button
-          onClick={() => { triggerHaptic(); onOpenLedger(); }}
-          className="relative p-1.5 active:scale-90 transition-transform"
-          aria-label="Ledger Inspector"
+          onClick={() => { triggerHaptic(); onOpenLedger?.(); }}
+          className="relative p-1 active:scale-90 transition-transform"
+          aria-label="Ledger Explorer"
+          title="Inspect Blocks & Cryptographic Ledger"
         >
-          <Send className="w-5 h-5 stroke-[2] -rotate-12" />
+          <Send className="w-[22px] h-[22px] stroke-[1.9] -rotate-12" />
         </button>
       </div>
     </nav>
