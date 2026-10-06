@@ -24,7 +24,8 @@ router.post('/', upload.single('media'), async (req, res) => {
       perceptualHash,
       perceptualHashReversed,
       mediaType = 'image',
-      videoFingerprint = ''
+      videoFingerprint = '',
+      thumbnailUrl = ''
     } = req.body;
 
     if (!authorId) {
@@ -69,7 +70,8 @@ router.post('/', upload.single('media'), async (req, res) => {
       perceptualHash || '',
       perceptualHashReversed || '',
       mediaType || 'image',
-      videoFingerprint || ''
+      videoFingerprint || '',
+      thumbnailUrl || ''
     );
 
     const postRecord = JSON.parse(result);
@@ -78,11 +80,15 @@ router.post('/', upload.single('media'), async (req, res) => {
     console.error('Error creating post on ledger:', err);
     if (
       err.message &&
-      (err.message.includes('Tamper-Proof Blockchain Security') ||
+      (err.message.includes('Tamper-Proof Security Error') ||
+       err.message.includes('Tamper-Proof Blockchain Security') ||
        err.message.includes('Blockchain Security Alert') ||
        err.message.includes('Tamper-proof'))
     ) {
-      return res.status(409).json({ error: err.message, tamperProofError: true });
+      return res.status(409).json({
+        error: 'Tamper-Proof Security Error: This media (or a cropped/trimmed variant) already exists on the ledger.',
+        tamperProofError: true
+      });
     }
     res.status(400).json({ error: err.message });
   }
@@ -131,7 +137,7 @@ router.post('/check-duplicate', upload.single('media'), async (req, res) => {
         distance: checkResult.distance,
         similarity: checkResult.similarity,
         existingPost: checkResult.existingPost,
-        error: checkResult.error || 'Tamper-Proof Blockchain Security: This media file (or a cropped/trimmed variant) has already been registered on the ledger.'
+        error: checkResult.error || 'Tamper-Proof Security Error: This media (or a cropped/trimmed variant) already exists on the ledger.'
       });
     }
 

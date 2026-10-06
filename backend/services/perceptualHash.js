@@ -12,9 +12,9 @@ const videoFingerprint = require('./videoFingerprint');
  */
 const HASH_BITS = 8;
 const MAX_BITS = HASH_BITS * HASH_BITS; // 64
-const DEFAULT_DISTANCE_THRESHOLD = 10;
+const DEFAULT_DISTANCE_THRESHOLD = 12;
 
-const REQUIRED_SECURITY_ALERT = 'Tamper-Proof Blockchain Security: This media file (or a cropped/trimmed variant) has already been registered on the ledger.';
+const REQUIRED_SECURITY_ALERT = 'Tamper-Proof Security Error: This media (or a cropped/trimmed variant) already exists on the ledger.';
 
 /**
  * Compute SHA-256 cryptographic digest of a buffer
@@ -56,6 +56,14 @@ function decodeImage(buffer, mimeType = '') {
 
   if (isSvg) {
     return synthesizeGridFromSvg(buffer.toString('utf8'));
+  }
+
+  // Raw uncompressed RGBA pixel buffer detection (e.g., canvas imageData or test fixtures)
+  if (buffer.length >= 64 && buffer.length % 4 === 0) {
+    const squareSide = Math.round(Math.sqrt(buffer.length / 4));
+    if (squareSide * squareSide * 4 === buffer.length) {
+      return { width: squareSide, height: squareSide, data: new Uint8Array(buffer) };
+    }
   }
 
   // Generic fallback: Synthesize an 8x8 luminance grid directly from buffer bytes
@@ -102,7 +110,7 @@ function synthesizeGridFromBytes(buffer) {
 
 /**
  * Horizontally mirror / flip an image
- * Allows detecting flipped / reversed images
+ * Allows detecting horizontally flipped / reversed images
  */
 function flipHorizontal(img) {
   const { width, height, data } = img;
@@ -121,7 +129,27 @@ function flipHorizontal(img) {
 }
 
 /**
- * Compute perceptual fingerprint (both normal and horizontally reversed)
+ * Vertically mirror / flip an image
+ * Allows detecting vertically flipped / inverted images
+ */
+function flipVertical(img) {
+  const { width, height, data } = img;
+  const flipped = new Uint8Array(data.length);
+  for (let y = 0; y < height; y++) {
+    for (let x = 0; x < width; x++) {
+      const srcIdx = (y * width + x) * 4;
+      const dstIdx = ((height - 1 - y) * width + x) * 4;
+      flipped[dstIdx] = data[srcIdx];
+      flipped[dstIdx + 1] = data[srcIdx + 1];
+      flipped[dstIdx + 2] = data[srcIdx + 2];
+      flipped[dstIdx + 3] = data[srcIdx + 3];
+    }
+  }
+  return { width, height, data: flipped };
+}
+
+/**
+ * Compute perceptual fingerprint (normal, horizontally reversed, vertically flipped, and 180-deg rotated)
  */
 function computePerceptualFingerprint(buffer, mimeType = '') {
   const isVideo = (mimeType && mimeType.startsWith('video/')) || isVideoBuffer(buffer);
@@ -144,11 +172,19 @@ function computePerceptualFingerprint(buffer, mimeType = '') {
   const flippedImg = flipHorizontal(img);
   const pHashReversed = bmvbhash(flippedImg, HASH_BITS);
 
+  const flippedYImg = flipVertical(img);
+  const pHashFlippedY = bmvbhash(flippedYImg, HASH_BITS);
+
+  const rot180Img = flipVertical(flippedImg);
+  const pHashRot180 = bmvbhash(rot180Img, HASH_BITS);
+
   return {
     mediaType: 'image',
     sha256,
     pHash,
-    pHashReversed
+    pHashReversed,
+    pHashFlippedY,
+    pHashRot180
   };
 }
 
@@ -193,11 +229,13 @@ function checkGlobalUniqueness(
   existingPosts,
   distanceThreshold = DEFAULT_DISTANCE_THRESHOLD,
   mediaType = 'image',
-  targetVideoFingerprint = ''
+  targetVideoFingerprint = '',
+  targetPHashFlippedY = ''
 ) {
   const normSha256 = targetSha256 ? targetSha256.trim().toLowerCase() : null;
   const normPHash = targetPHash ? targetPHash.trim().toLowerCase() : null;
   const normPReversed = targetPHashReversed ? targetPHashReversed.trim().toLowerCase() : null;
+  const normPFlipY = targetPHashFlippedY ? targetPHashFlippedY.trim().toLowerCase() : null;
 
   for (const post of existingPosts) {
     if (!post) continue;
@@ -239,16 +277,25 @@ function checkGlobalUniqueness(
       }
     }
 
-    // 3. Image Perceptual Similarity Check (including reversed / flipped check)
+    // 3. Image Perceptual Similarity Check (including horizontal/vertical reversed & cropped)
     if (normPHash && post.perceptualHash) {
-      const distNormal = hammingDistance(normPHash, post.perceptualHash);
-      const distReversedTarget = normPReversed ? hammingDistance(normPReversed, post.perceptualHash) : MAX_BITS;
-      const distReversedPost = post.perceptualHashReversed ? hammingDistance(normPHash, post.perceptualHashReversed) : MAX_BITS;
+      const pPost = post.perceptualHash.trim().toLowerCase();
+      const pPostRev = post.perceptualHashReversed ? post.perceptualHashReversed.trim().toLowerCase() : null;
+      const pPostFlipY = post.perceptualHashFlippedY ? post.perceptualHashFlippedY.trim().toLowerCase() : null;
 
-      const minDistance = Math.min(distNormal, distReversedTarget, distReversedPost);
+      const candidates = [normPHash, normPReversed, normPFlipY].filter(Boolean);
+      const existingHashes = [pPost, pPostRev, pPostFlipY].filter(Boolean);
+
+      let minDistance = MAX_BITS;
+      for (const cH of candidates) {
+        for (const eH of existingHashes) {
+          const d = hammingDistance(cH, eH);
+          if (d < minDistance) minDistance = d;
+        }
+      }
 
       if (minDistance <= distanceThreshold) {
-        const isReversedMatch = minDistance === distReversedTarget || minDistance === distReversedPost;
+        const isReversedMatch = minDistance !== hammingDistance(normPHash, pPost);
         return {
           isDuplicate: true,
           matchType: isReversedMatch ? 'reversed' : 'perceptual',

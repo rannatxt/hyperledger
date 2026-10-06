@@ -11,8 +11,8 @@ const { PNG } = require('pngjs');
 
 const HASH_BITS = 8;
 const MAX_BITS = 64;
-const FRAME_DISTANCE_THRESHOLD = 10; // Hamming distance <= 10 bits per frame matches (>= 84% frame similarity)
-const SUBSEQUENCE_MATCH_RATIO = 0.60; // >= 60% of overlapping frames must match
+const FRAME_DISTANCE_THRESHOLD = 12; // Hamming distance <= 12 bits per frame matches (>= 81.25% frame similarity)
+const SUBSEQUENCE_MATCH_RATIO = 0.50; // >= 50% of overlapping frames must match for trim resistance
 const MIN_OVERLAP_FRAMES = 2; // At least 2 frames overlap required
 
 /**
@@ -354,7 +354,7 @@ function compareVideoFingerprints(targetFp, existingFp) {
       matchType: 'exact_video',
       distance: 0,
       similarity: 1.0,
-      message: 'Tamper-Proof Blockchain Security: This media file (or a cropped/trimmed variant) has already been registered on the ledger.'
+      message: 'Tamper-Proof Security Error: This media (or a cropped/trimmed variant) already exists on the ledger.'
     };
   }
 
@@ -379,7 +379,7 @@ function compareVideoFingerprints(targetFp, existingFp) {
       distance: Math.round(forwardAlignment.minAvgDistance),
       similarity,
       overlapFrames: forwardAlignment.overlapCount,
-      message: 'Tamper-Proof Blockchain Security: This media file (or a cropped/trimmed variant) has already been registered on the ledger.'
+      message: 'Tamper-Proof Security Error: This media (or a cropped/trimmed variant) already exists on the ledger.'
     };
   }
 
@@ -395,7 +395,7 @@ function compareVideoFingerprints(targetFp, existingFp) {
       distance: Math.round(reverseAlignment.minAvgDistance),
       similarity,
       overlapFrames: reverseAlignment.overlapCount,
-      message: 'Tamper-Proof Blockchain Security: This media file (or a cropped/trimmed variant) has already been registered on the ledger.'
+      message: 'Tamper-Proof Security Error: This media (or a cropped/trimmed variant) already exists on the ledger.'
     };
   }
 

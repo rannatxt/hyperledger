@@ -19,7 +19,7 @@ const {
   compareVideoSignatures
 } = require('./utils');
 
-const REQUIRED_SECURITY_ALERT = 'Tamper-Proof Blockchain Security: This media file (or a cropped/trimmed variant) has already been registered on the ledger.';
+const REQUIRED_SECURITY_ALERT = 'Tamper-Proof Security Error: This media (or a cropped/trimmed variant) already exists on the ledger.';
 
 class InstaLedgerContract extends Contract {
   constructor() {
@@ -130,6 +130,7 @@ class InstaLedgerContract extends Contract {
         mediaType: 'video',
         videoFingerprint: 'VF1:1122334455667788,1122334455667799,11223344556677aa,11223344556677bb|8877665544332211,9977665544332211,aa77665544332211,bb77665544332211',
         mediaUrl: 'https://assets.mixkit.co/videos/preview/mixkit-circuit-board-details-in-movement-44026-large.mp4',
+        thumbnailUrl: 'https://images.unsplash.com/photo-1518770660439-4636190af475?w=800&auto=format&fit=crop&q=80',
         caption: 'Temporal blockchain video verification live on Hyperledger Fabric ⛓️ Keyframe signatures prevent trim & crop piracy.',
         timestamp: '2026-09-21T12:00:00.000Z',
         likeCount: 4,
@@ -288,7 +289,8 @@ class InstaLedgerContract extends Contract {
     perceptualHash,
     perceptualHashReversed,
     mediaType = 'image',
-    videoFingerprint = ''
+    videoFingerprint = '',
+    thumbnailUrl = ''
   ) {
     if (!postId || !authorId || !contentHash) {
       throw new Error('PostId, authorId, and contentHash are required');
@@ -309,7 +311,7 @@ class InstaLedgerContract extends Contract {
 
     const pNorm = perceptualHash ? perceptualHash.trim().toLowerCase() : null;
     const pRevNorm = perceptualHashReversed ? perceptualHashReversed.trim().toLowerCase() : null;
-    const DISTANCE_THRESHOLD = 10;
+    const DISTANCE_THRESHOLD = 12;
     const isTargetVideo = mediaType === 'video' || (videoFingerprint && videoFingerprint.length > 0);
 
     // Global uniqueness check across world state
@@ -378,6 +380,7 @@ class InstaLedgerContract extends Contract {
       mediaType: isTargetVideo ? 'video' : 'image',
       videoFingerprint: videoFingerprint || '',
       mediaUrl: mediaUrl || '',
+      thumbnailUrl: thumbnailUrl || '',
       caption: caption || '',
       timestamp: new Date().toISOString(),
       likeCount: 0,
@@ -413,7 +416,7 @@ class InstaLedgerContract extends Contract {
     const normContentHash = contentHash ? contentHash.trim().toLowerCase() : null;
     const pNorm = perceptualHash ? perceptualHash.trim().toLowerCase() : null;
     const pRevNorm = perceptualHashReversed ? perceptualHashReversed.trim().toLowerCase() : null;
-    const DISTANCE_THRESHOLD = 10;
+    const DISTANCE_THRESHOLD = 12;
     const isTargetVideo = mediaType === 'video' || (videoFingerprint && videoFingerprint.length > 0);
 
     if (normContentHash) {
