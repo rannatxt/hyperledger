@@ -90,7 +90,7 @@ function parseVideoSignature(sigStr) {
  * Sliding window alignment between frame hash sequences
  * Detects overlapping/trimmed subsequences, cropping variations, and reversed playback
  */
-function alignFrameSequences(seqTarget, seqExisting, seqTargetRev = null, seqExistingRev = null, threshold = 10) {
+function alignFrameSequences(seqTarget, seqExisting, seqTargetRev = null, seqExistingRev = null, threshold = 12) {
   const m = seqTarget.length;
   const n = seqExisting.length;
   if (m === 0 || n === 0) return { isMatch: false, minAvgDistance: 64, matchRatio: 0, overlapCount: 0 };
@@ -142,8 +142,8 @@ function alignFrameSequences(seqTarget, seqExisting, seqTargetRev = null, seqExi
     }
   }
 
-  const isMatch = (bestMatchRatio >= 0.60 && minAvgDist <= threshold)
-    || (bestOverlap >= 3 && bestMatchRatio >= 0.70 && minAvgDist <= threshold);
+  const isMatch = (bestMatchRatio >= 0.50 && minAvgDist <= threshold)
+    || (bestOverlap >= 2 && bestMatchRatio >= 0.60 && minAvgDist <= threshold);
 
   return {
     isMatch,

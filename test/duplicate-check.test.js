@@ -12,12 +12,13 @@ const worldStatePosts = new Map();
 const contentHashes = new Set();
 const perceptualHashes = new Set();
 
-const REQUIRED_ALERT = 'Tamper-Proof Blockchain Security: This media file (or a cropped/trimmed variant) has already been registered on the ledger.';
+const REQUIRED_ALERT = 'Tamper-Proof Security Error: This media (or a cropped/trimmed variant) already exists on the ledger.';
 
-function submitPostToLedger(authorId, caption, mediaBuffer, mimeType = 'image/jpeg', mediaType = 'image') {
+function submitPostToLedger(authorId, caption, mediaBuffer, mimeType = 'image/jpeg', mediaType = 'image', thumbnailUrl = '') {
   let sha256 = '';
   let pHash = '';
   let pHashReversed = '';
+  let pHashFlippedY = '';
   let videoSignature = '';
 
   const isVideo = mediaType === 'video' || (mimeType && mimeType.startsWith('video/'));
@@ -28,11 +29,13 @@ function submitPostToLedger(authorId, caption, mediaBuffer, mimeType = 'image/jp
     pHash = vFp.frameHashes[0] || '';
     pHashReversed = vFp.frameHashesReversed[0] || '';
     videoSignature = vFp.signature;
+    if (!thumbnailUrl) thumbnailUrl = 'data:image/jpeg;base64,mockVideoKeyframeThumb';
   } else {
     const fp = perceptualHash.computePerceptualFingerprint(mediaBuffer, mimeType);
     sha256 = fp.sha256;
     pHash = fp.pHash;
     pHashReversed = fp.pHashReversed;
+    pHashFlippedY = fp.pHashFlippedY || '';
   }
 
   // 1. Exact cryptographic hash check
@@ -48,7 +51,8 @@ function submitPostToLedger(authorId, caption, mediaBuffer, mimeType = 'image/jp
     Array.from(worldStatePosts.values()),
     perceptualHash.DEFAULT_DISTANCE_THRESHOLD,
     isVideo ? 'video' : 'image',
-    videoSignature
+    videoSignature,
+    pHashFlippedY
   );
 
   if (uniqueness.isDuplicate) {
@@ -63,8 +67,10 @@ function submitPostToLedger(authorId, caption, mediaBuffer, mimeType = 'image/jp
     contentHash: sha256,
     perceptualHash: pHash,
     perceptualHashReversed: pHashReversed,
+    perceptualHashFlippedY: pHashFlippedY,
     mediaType: isVideo ? 'video' : 'image',
     videoFingerprint: videoSignature,
+    thumbnailUrl: thumbnailUrl || '',
     timestamp: new Date().toISOString()
   };
 
@@ -108,6 +114,23 @@ function flipImg(img) {
   return { width, height, data: flipped };
 }
 
+// Helper to flip image vertically
+function flipImgVertical(img) {
+  const { width, height, data } = img;
+  const flipped = new Uint8Array(data.length);
+  for (let y = 0; y < height; y++) {
+    for (let x = 0; x < width; x++) {
+      const srcIdx = (y * width + x) * 4;
+      const dstIdx = ((height - 1 - y) * width + x) * 4;
+      flipped[dstIdx] = data[srcIdx];
+      flipped[dstIdx + 1] = data[srcIdx + 1];
+      flipped[dstIdx + 2] = data[srcIdx + 2];
+      flipped[dstIdx + 3] = data[srcIdx + 3];
+    }
+  }
+  return { width, height, data: flipped };
+}
+
 // Helper to center-crop image
 function cropImg(img, factor = 0.85) {
   const { width, height, data } = img;
@@ -132,15 +155,24 @@ function cropImg(img, factor = 0.85) {
 // Prepare image test fixtures
 const imgOriginal = generateGradientImage(64, 64, 0);
 const imgFlipped = flipImg(imgOriginal);
+const imgFlippedY = flipImgVertical(imgOriginal);
 const imgCropped = cropImg(imgOriginal, 0.85);
-const imgDifferent = generateGradientImage(64, 64, 0);
-for (let i = 0; i < imgDifferent.data.length; i += 4) {
-  imgDifferent.data[i] = 255 - imgDifferent.data[i];
-  imgDifferent.data[i + 1] = 255 - imgDifferent.data[i + 1];
+const imgDifferent = { width: 64, height: 64, data: new Uint8Array(64 * 64 * 4) };
+for (let y = 0; y < 64; y++) {
+  for (let x = 0; x < 64; x++) {
+    const idx = (y * 64 + x) * 4;
+    const dist = Math.sqrt((x - 32) ** 2 + (y - 32) ** 2);
+    const ring = Math.floor(dist / 4) % 2 === 0 ? 230 : 20;
+    imgDifferent.data[idx] = ring;
+    imgDifferent.data[idx + 1] = ring;
+    imgDifferent.data[idx + 2] = 200;
+    imgDifferent.data[idx + 3] = 255;
+  }
 }
 
 const bufOriginal = Buffer.from(imgOriginal.data);
 const bufFlipped = Buffer.from(imgFlipped.data);
+const bufFlippedY = Buffer.from(imgFlippedY.data);
 const bufCropped = Buffer.from(imgCropped.data);
 const bufDifferent = Buffer.from(imgDifferent.data);
 
@@ -179,6 +211,19 @@ try {
   console.log(`   "${err.message}"`);
 }
 assert.strictEqual(reversedCaught, true, 'Reversed/flipped photo must be rejected');
+
+// ── TEST 3B: Vertically reversed (flipped Y) photo A uploaded by user_invert ──
+console.log('\n3b. User @invert attempts vertically reversed upload of photo A...');
+let vertCaught = false;
+try {
+  submitPostToLedger('user_invert', 'Flipped vertically to bypass hash comparison', bufFlippedY);
+} catch (err) {
+  vertCaught = true;
+  assert.strictEqual(err.message, REQUIRED_ALERT);
+  console.log('   ✅ Rejected immediately with required tamper-proof security alert:');
+  console.log(`   "${err.message}"`);
+}
+assert.strictEqual(vertCaught, true, 'Vertically flipped photo must be rejected');
 
 // ── TEST 4: Cropped / compressed photo A uploaded by user_copycat ──
 console.log('\n4. User @copycat attempts cropped/compressed upload of photo A...');
