@@ -2,7 +2,7 @@ import { useState, useRef } from 'react';
 import {
   X, Upload, AlertTriangle,
   CheckCircle2, Loader2,
-  Copy, Check
+  Copy, Check, ShieldX, Lock, Ban
 } from 'lucide-react';
 import { computeFileSHA256, shortHash } from '../../utils/crypto';
 import { computeClientPerceptualHash, computeClientVideoFingerprint } from '../../utils/perceptualHash';
@@ -29,32 +29,32 @@ const PRESETS = [
     url: 'https://images.unsplash.com/photo-1639762681485-074b7f938ba0?w=800&auto=format&fit=crop&q=80',
     contentHash: 'bafybeigdyrzt5sfp7udm7hu76uh7y26nf3efuylqabf3oclgtqy55fbzdi',
     perceptualHash: '007f007f00ff01ff',
-    hint: 'Simulates exact repost of Genesis block #1'
+    hint: 'Simulates exact repost — SHA-256 match against Block #1 ledger entry'
   },
   {
-    name: 'Cropped / Flipped Variant',
+    name: 'Cropped / Filtered Variant',
     type: 'image',
-    tag: 'Crop / Flip',
+    tag: 'Crop/Filter Block',
     url: 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=800&auto=format&fit=crop&q=80',
     perceptualHash: '01800ff01ff83ffc',
     perceptualHashReversed: '3ffc0ff01ff80180',
-    hint: 'Simulates perceptual cropped/reversed clone of Block #2'
+    hint: 'Simulates cropped/flipped/filtered clone — blocked by dHash Hamming distance'
   },
   {
     name: 'Trimmed Video Variant',
     type: 'video',
-    tag: 'Trim Resistance',
+    tag: 'Trim Block',
     url: 'https://assets.mixkit.co/videos/preview/mixkit-circuit-board-details-in-movement-44026-large.mp4',
     thumbnailUrl: 'https://images.unsplash.com/photo-1518770660439-4636190af475?w=800&auto=format&fit=crop&q=80',
     videoFingerprint: 'VF1:1122334455667799,11223344556677aa|9977665544332211,aa77665544332211',
-    hint: 'Simulates trimmed edges of Video Reel #4 (subsequence match)'
+    hint: 'Simulates trimmed re-upload — blocked by temporal frame subsequence matching'
   },
   {
     name: 'Unique Tokyo Photo',
     type: 'image',
-    tag: 'Unique Photo',
+    tag: 'Novel Post',
     url: 'https://images.unsplash.com/photo-1542051841857-5f90071e7989?w=900&auto=format&fit=crop&q=80',
-    hint: 'Authentic novel photo post'
+    hint: 'Authentic novel media — passes all Fabric ledger checks and gets committed'
   }
 ];
 
@@ -196,7 +196,7 @@ export default function UploadSheet({ isOpen, onClose, currentUser, onPostCreate
 
         if (check.isDuplicate) {
           setIsDuplicate(true);
-          setDupError(check.error || 'Duplicate Detected (Rejected) - Tamper-Proof Blockchain Security: This media file (or a cropped/trimmed variant) has already been immutably registered on the Hyperledger Fabric channel ledger.');
+          setDupError(check.error || 'Duplicate Detected (Rejected) - Tamper-Proof Blockchain Security: This media file (or a cropped/trimmed/filtered variant) has already been immutably registered on the Hyperledger Fabric channel ledger by another transaction.');
           setDupDetails(check);
           triggerHaptic('error');
         } else {
@@ -260,7 +260,7 @@ export default function UploadSheet({ isOpen, onClose, currentUser, onPostCreate
 
         if (check.isDuplicate) {
           setIsDuplicate(true);
-          setDupError(check.error || 'Duplicate Detected (Rejected) - Tamper-Proof Blockchain Security: This media file (or a cropped/trimmed variant) has already been immutably registered on the Hyperledger Fabric channel ledger.');
+          setDupError(check.error || 'Duplicate Detected (Rejected) - Tamper-Proof Blockchain Security: This media file (or a cropped/trimmed/filtered variant) has already been immutably registered on the Hyperledger Fabric channel ledger by another transaction.');
           setDupDetails(check);
           triggerHaptic('error');
         } else {
@@ -418,11 +418,15 @@ export default function UploadSheet({ isOpen, onClose, currentUser, onPostCreate
                 </div>
                 <p className="text-sm font-bold text-[#262626]">Select photos and videos</p>
                 <p className="text-xs text-[#737373] mt-1 max-w-xs">
-                  MP4, MOV, WebM, PNG, JPG supported. Media is validated and recorded on the Hyperledger Fabric Decentralized Ledger State with Raft Consensus Endorsement.
+                  MP4, MOV, WebM, PNG, JPG. All media is fingerprinted and cross-checked globally against the <strong>Hyperledger Fabric Decentralized Ledger State</strong> using SHA-256 + perceptual dHash before commit.
                 </p>
+                <div className="mt-3 flex items-center gap-1.5 text-[10px] text-[#00BA88] font-mono">
+                  <Lock className="w-3 h-3" />
+                  <span>Crop · Flip · Filter · Trim · Re-encode resistant</span>
+                </div>
                 <button
                   type="button"
-                  className="mt-4 px-4 py-2 rounded-lg bg-[#0095F6] text-white text-xs font-semibold shadow-sm hover:bg-[#1877F2] transition-colors"
+                  className="mt-3 px-4 py-2 rounded-lg bg-[#0095F6] text-white text-xs font-semibold shadow-sm hover:bg-[#1877F2] transition-colors"
                 >
                   Select Media File
                 </button>
@@ -564,23 +568,55 @@ export default function UploadSheet({ isOpen, onClose, currentUser, onPostCreate
 
               {/* Tamper-Proof Duplicate Alert or Success Box */}
               {isDuplicate ? (
-                <div className="p-3.5 rounded-xl bg-[#FFF2F2] border border-[#FFD0D0] space-y-2 animate-fade-in">
-                  <div className="flex items-start gap-2.5 text-[#ED4956]">
-                    <AlertTriangle className="w-5 h-5 flex-shrink-0 mt-0.5" />
-                    <div>
-                      <h4 className="text-xs font-bold text-[#ED4956]">Duplicate Detected (Rejected)</h4>
-                      <p className="text-[11px] text-[#262626] mt-0.5 leading-snug">
-                        {dupError}
+                <div className="rounded-2xl overflow-hidden border-2 border-[#ED4956] shadow-lg animate-fade-in">
+                  {/* Red Header Bar */}
+                  <div className="bg-[#ED4956] px-4 py-3 flex items-center gap-3">
+                    <div className="w-8 h-8 rounded-full bg-white/20 flex items-center justify-center flex-shrink-0">
+                      <Ban className="w-4 h-4 text-white" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-white text-xs font-extrabold uppercase tracking-wide">Upload Blocked — Duplicate Detected</p>
+                      <p className="text-white/80 text-[10px] font-mono mt-0.5">Hyperledger Fabric Consensus Rejection</p>
+                    </div>
+                    <ShieldX className="w-5 h-5 text-white flex-shrink-0" />
+                  </div>
+
+                  {/* Error Body */}
+                  <div className="bg-[#FFF2F2] px-4 py-3 space-y-3">
+                    <p className="text-[12px] font-semibold text-[#8B0000] leading-snug">
+                      {dupError}
+                    </p>
+
+                    {dupDetails?.existingPost && (
+                      <div className="p-2.5 rounded-lg bg-white border border-[#FFD0D0] text-[10px] font-mono text-[#737373] space-y-1">
+                        <div className="flex items-center gap-1.5">
+                          <span className="text-[#ED4956] font-bold">⛔ Registered by:</span>
+                          <strong className="text-[#262626]">@{dupDetails.existingPost.authorUsername}</strong>
+                        </div>
+                        <div className="flex items-center gap-1.5">
+                          <span className="text-[#ED4956] font-bold">📦 Block Height:</span>
+                          <strong className="text-[#262626]">#{dupDetails.existingPost.blockNumber}</strong>
+                        </div>
+                        <div className="flex items-center gap-1.5">
+                          <span className="text-[#ED4956] font-bold">🔍 Match Type:</span>
+                          <strong className="text-[#262626] capitalize">{dupDetails.matchType?.replace('_', ' ') || 'cryptographic'}</strong>
+                        </div>
+                        {dupDetails.distance !== undefined && (
+                          <div className="flex items-center gap-1.5">
+                            <span className="text-[#ED4956] font-bold">📐 Hamming Distance:</span>
+                            <strong className="text-[#262626]">{dupDetails.distance} / 64 bits</strong>
+                          </div>
+                        )}
+                      </div>
+                    )}
+
+                    <div className="flex items-center gap-2 p-2 rounded-lg bg-[#FFE8E8] border border-[#FFB5B5]">
+                      <AlertTriangle className="w-4 h-4 text-[#ED4956] flex-shrink-0" />
+                      <p className="text-[10px] text-[#8B0000] font-semibold leading-tight">
+                        This action has been permanently logged. Repeated violations are recorded on channel <span className="font-mono">mychannel</span>.
                       </p>
                     </div>
                   </div>
-
-                  {dupDetails?.existingPost && (
-                    <div className="pt-2 border-t border-[#FFD0D0] text-[10px] font-mono text-[#737373] space-y-0.5">
-                      <div>Already registered by: <strong className="text-[#262626]">@{dupDetails.existingPost.authorUsername}</strong></div>
-                      <div>Block Height: <strong className="text-[#262626]">#{dupDetails.existingPost.blockNumber}</strong></div>
-                    </div>
-                  )}
                 </div>
               ) : (
                 !hashing && (

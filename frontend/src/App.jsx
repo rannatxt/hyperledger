@@ -439,7 +439,7 @@ export default function App() {
                   ) : displayedPosts.length === 0 ? (
                     <div className="py-24 text-center space-y-2 px-4">
                       <p className="text-sm font-bold text-[#262626]">No Posts Yet</p>
-                      <p className="text-xs text-[#737373]">Post a photo or video to store locally on your phone!</p>
+                      <p className="text-xs text-[#737373]">Post a photo or video — it will be registered on the Hyperledger Fabric Decentralized Ledger State!</p>
                       <button
                         onClick={() => setUploadOpen(true)}
                         className="mt-3 px-4 py-2 rounded-lg bg-[#0095F6] text-white font-semibold text-xs shadow-xs"

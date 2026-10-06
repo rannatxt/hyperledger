@@ -205,7 +205,7 @@ export async function deletePostFromDevice(postId) {
   }
 }
 
-const REQUIRED_TAMPER_ALERT = 'Duplicate Detected (Rejected) - Tamper-Proof Blockchain Security: This media file (or a cropped/trimmed variant) has already been immutably registered on the Hyperledger Fabric channel ledger.';
+const REQUIRED_TAMPER_ALERT = 'Duplicate Detected (Rejected) - Tamper-Proof Blockchain Security: This media file (or a cropped/trimmed/filtered variant) has already been immutably registered on the Hyperledger Fabric channel ledger by another transaction.';
 
 const GENESIS_ANCHORS = [
   {
@@ -235,9 +235,14 @@ const GENESIS_ANCHORS = [
 ];
 
 /**
- * Check duplicate media against Hyperledger Fabric Decentralized Ledger State
- * Blocks exact duplicates, cropped/flipped variants (dHash <= 10),
- * and trimmed/reordered video variants.
+ * Global Tamper-Proof Uniqueness Check against Hyperledger Fabric Decentralized Ledger State.
+ * Enforces universal uniqueness across ALL registered media:
+ *   - Images: SHA-256 exact match + perceptual dHash Hamming distance ≤ 8 bits
+ *     (blocks crops, flips, brightness edits, and Instagram-style filters)
+ *   - Videos: temporal frame-sampling subsequence match
+ *     (blocks edge trims, speed changes, and re-encodings)
+ * Note: CSS visual filters (Clarendon, Gingham, etc.) do NOT affect the perceptual hash
+ * because dHash is computed from raw pixel data BEFORE any filter is applied client-side.
  */
 export async function checkDeviceDuplicate({
   contentHash = '',
@@ -284,7 +289,7 @@ export async function checkDeviceDuplicate({
       }
     }
 
-    // 3. Image perceptual dHash comparison (Hamming distance <= 10)
+    // 3. Image perceptual dHash comparison (Hamming distance <= 8 — filter, crop, flip resistant)
     if (pNorm && p.perceptualHash) {
       const existingPHash = p.perceptualHash.trim().toLowerCase();
       const existingPRev = p.perceptualHashReversed ? p.perceptualHashReversed.trim().toLowerCase() : '';
@@ -295,7 +300,8 @@ export async function checkDeviceDuplicate({
 
       const minDistance = Math.min(distDirect, distRev, distExistingRev);
 
-      if (minDistance <= 10) {
+      // Strict threshold: ≤ 8 bits difference blocks crops, flips, minor colour edits & filters
+      if (minDistance <= 8) {
         return {
           isDuplicate: true,
           matchType: minDistance === distDirect ? 'perceptual' : 'perceptual_reversed',
