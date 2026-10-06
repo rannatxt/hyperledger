@@ -8,6 +8,7 @@ import { computeFileSHA256, shortHash } from '../../utils/crypto';
 import { computeClientPerceptualHash, computeClientVideoFingerprint } from '../../utils/perceptualHash';
 import { extractVideoThumbnail, getVideoPosterFallback } from '../../utils/thumbnail';
 import { api } from '../../services/api';
+import TamperProofVerificationCard from '../common/TamperProofVerificationCard';
 
 const FILTERS = [
   { name: 'Normal',    cls: 'f-normal'    },
@@ -63,14 +64,6 @@ const PRESETS = [
     tag: 'Unique Photo',
     url: 'https://images.unsplash.com/photo-1542051841857-5f90071e7989?w=900&auto=format&fit=crop&q=80',
     hint: 'Fresh digital photograph'
-  },
-  {
-    name: 'Unique Drone Video',
-    type: 'video',
-    tag: 'Unique Video',
-    url: 'https://assets.mixkit.co/videos/preview/mixkit-tree-branches-in-the-breeze-1188-large.mp4',
-    thumbnailUrl: 'https://images.unsplash.com/photo-1508873696983-2df5703bc20d?w=800&auto=format&fit=crop&q=80',
-    hint: 'Fresh generative video reel'
   }
 ];
 
@@ -185,7 +178,7 @@ export default function DesktopUploadModal({ isOpen, onClose, currentUser, onPos
 
       if (check.isDuplicate) {
         setIsDuplicate(true);
-        setDupError(check.error || 'Tamper-Proof Blockchain Security: This media file (or a cropped/trimmed variant) has already been registered on the ledger.');
+        setDupError(check.error || 'Duplicate Detected (Rejected) - Tamper-Proof Blockchain Security: This media file (or a cropped/trimmed variant) has already been immutably registered on the Hyperledger Fabric channel ledger.');
         setDupDetails(check);
       }
     } catch (err) {
@@ -223,7 +216,7 @@ export default function DesktopUploadModal({ isOpen, onClose, currentUser, onPos
 
       if (check.isDuplicate) {
         setIsDuplicate(true);
-        setDupError(check.error || 'Tamper-Proof Blockchain Security: This media file (or a cropped/trimmed variant) has already been registered on the ledger.');
+        setDupError(check.error || 'Duplicate Detected (Rejected) - Tamper-Proof Blockchain Security: This media file (or a cropped/trimmed variant) has already been immutably registered on the Hyperledger Fabric channel ledger.');
         setDupDetails(check);
       }
     } catch (e) {
@@ -463,39 +456,14 @@ export default function DesktopUploadModal({ isOpen, onClose, currentUser, onPos
                   </p>
                 </div>
               ) : (
-                <div className="p-3.5 rounded-2xl bg-[#F0FDF4] border border-[#BBF7D0] flex items-center justify-between text-xs text-[#166534]">
-                  <div className="flex items-center gap-2 font-semibold">
-                    <CheckCircle2 className="w-4 h-4 text-[#27ae60]" />
-                    <span>Cryptographically & perceptually unique! Ready for ledger minting.</span>
-                  </div>
-                  <span className="text-[10px] font-mono font-bold bg-white px-2 py-0.5 rounded-full border border-[#BBF7D0]">
-                    VERIFIED
-                  </span>
-                </div>
-              )}
-
-              {/* Fingerprint Details Card */}
-              {sha256 && (
-                <div className="p-3 rounded-2xl bg-[#F8F8F8] border border-[#EAEAEA] font-mono text-[11px] space-y-1.5 text-[#555555]">
-                  <div className="flex items-center justify-between">
-                    <span className="text-[#767676]">SHA-256 Digest:</span>
-                    <button onClick={copyHash} className="hover:text-[#111111] flex items-center gap-1 text-[10px]">
-                      {copied ? <Check className="w-3 h-3 text-[#27ae60]" /> : <Copy className="w-3 h-3" />}
-                      <span>{shortHash(sha256)}</span>
-                    </button>
-                  </div>
-                  {pHash && (
-                    <div className="flex items-center justify-between">
-                      <span className="text-[#767676]">pHash (Perceptual):</span>
-                      <span className="text-[#111111] font-semibold">{shortHash(pHash)}</span>
-                    </div>
-                  )}
-                  {videoFingerprint && (
-                    <div className="flex items-center justify-between">
-                      <span className="text-[#767676]">Video Temporal Sig:</span>
-                      <span className="text-[#E60023] font-semibold">Verified Frame Matrix</span>
-                    </div>
-                  )}
+                <div className="pt-1">
+                  <TamperProofVerificationCard
+                    sha256={sha256}
+                    perceptualHash={pHash}
+                    videoFingerprint={videoFingerprint}
+                    blockNumber="New Block"
+                    channel="mychannel"
+                  />
                 </div>
               )}
             </div>

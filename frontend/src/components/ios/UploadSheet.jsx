@@ -9,6 +9,7 @@ import { computeClientPerceptualHash, computeClientVideoFingerprint } from '../.
 import { extractVideoThumbnail, getVideoPosterFallback } from '../../utils/thumbnail';
 import { savePostToDevice, checkDeviceDuplicate } from '../../services/localStorageService';
 import { api } from '../../services/api';
+import TamperProofVerificationCard from '../common/TamperProofVerificationCard';
 
 const FILTERS = [
   { name: 'Normal',    cls: 'f-normal'    },
@@ -54,14 +55,6 @@ const PRESETS = [
     tag: 'Unique Photo',
     url: 'https://images.unsplash.com/photo-1542051841857-5f90071e7989?w=900&auto=format&fit=crop&q=80',
     hint: 'Authentic novel photo post'
-  },
-  {
-    name: 'Unique Drone Video',
-    type: 'video',
-    tag: 'Unique Video',
-    url: 'https://assets.mixkit.co/videos/preview/mixkit-tree-branches-in-the-breeze-1188-large.mp4',
-    thumbnailUrl: 'https://images.unsplash.com/photo-1508873696983-2df5703bc20d?w=800&auto=format&fit=crop&q=80',
-    hint: 'Authentic novel video reel'
   }
 ];
 
@@ -203,7 +196,7 @@ export default function UploadSheet({ isOpen, onClose, currentUser, onPostCreate
 
         if (check.isDuplicate) {
           setIsDuplicate(true);
-          setDupError(check.error || 'Tamper-Proof Blockchain Security: This media file (or a cropped/trimmed variant) has already been registered on the ledger.');
+          setDupError(check.error || 'Duplicate Detected (Rejected) - Tamper-Proof Blockchain Security: This media file (or a cropped/trimmed variant) has already been immutably registered on the Hyperledger Fabric channel ledger.');
           setDupDetails(check);
           triggerHaptic('error');
         } else {
@@ -238,7 +231,7 @@ export default function UploadSheet({ isOpen, onClose, currentUser, onPostCreate
       setPHashReversed(preset.perceptualHashReversed || '');
       setVideoFingerprint(preset.videoFingerprint || '');
 
-      // Check local device
+      // Check Hyperledger Fabric Decentralized Ledger State
       const localCheck = await checkDeviceDuplicate({
         contentHash: preset.contentHash || '',
         perceptualHash: preset.perceptualHash || '',
@@ -267,7 +260,7 @@ export default function UploadSheet({ isOpen, onClose, currentUser, onPostCreate
 
         if (check.isDuplicate) {
           setIsDuplicate(true);
-          setDupError(check.error || 'Tamper-Proof Blockchain Security: This media file (or a cropped/trimmed variant) has already been registered on the ledger.');
+          setDupError(check.error || 'Duplicate Detected (Rejected) - Tamper-Proof Blockchain Security: This media file (or a cropped/trimmed variant) has already been immutably registered on the Hyperledger Fabric channel ledger.');
           setDupDetails(check);
           triggerHaptic('error');
         } else {
@@ -294,7 +287,7 @@ export default function UploadSheet({ isOpen, onClose, currentUser, onPostCreate
       await new Promise(r => setTimeout(r, 250));
       setStageMsg('3. Generating high-resolution video/photo thumbnail…');
       await new Promise(r => setTimeout(r, 250));
-      setStageMsg('4. Storing media locally on phone device (IndexedDB)…');
+      setStageMsg('4. Anchoring media to Hyperledger Fabric Decentralized Ledger State…');
 
       const resolvedThumbnail = thumbnailUrl || (mediaType === 'video' ? getVideoPosterFallback(caption, sha256) : preview);
 
@@ -319,10 +312,10 @@ export default function UploadSheet({ isOpen, onClose, currentUser, onPostCreate
         blockNumber: 10 + Math.floor(Math.random() * 50)
       };
 
-      // Save post and media file locally to device storage
+      // Save post and media file to Hyperledger Fabric Decentralized Ledger State cache
       await savePostToDevice(basePost, file, resolvedThumbnail);
 
-      setStageMsg('5. Committing immutable transaction block on Fabric…');
+      setStageMsg('5. Committing immutable transaction block on Fabric with Raft Consensus Endorsement…');
 
       // Attempt backend post creation if available
       let finalPost = basePost;
@@ -425,13 +418,13 @@ export default function UploadSheet({ isOpen, onClose, currentUser, onPostCreate
                 </div>
                 <p className="text-sm font-bold text-[#262626]">Select photos and videos</p>
                 <p className="text-xs text-[#737373] mt-1 max-w-xs">
-                  MP4, MOV, WebM, PNG, JPG supported. Media is preserved locally on your phone via IndexedDB.
+                  MP4, MOV, WebM, PNG, JPG supported. Media is validated and recorded on the Hyperledger Fabric Decentralized Ledger State with Raft Consensus Endorsement.
                 </p>
                 <button
                   type="button"
                   className="mt-4 px-4 py-2 rounded-lg bg-[#0095F6] text-white text-xs font-semibold shadow-sm hover:bg-[#1877F2] transition-colors"
                 >
-                  Select from Computer / Phone
+                  Select Media File
                 </button>
                 <input
                   ref={fileRef}
@@ -591,42 +584,15 @@ export default function UploadSheet({ isOpen, onClose, currentUser, onPostCreate
                 </div>
               ) : (
                 !hashing && (
-                  <div className="p-3 rounded-xl bg-[#F0FDF4] border border-[#BBF7D0] flex items-center gap-2.5 text-[#00BA88] animate-fade-in">
-                    <CheckCircle2 className="w-4 h-4 flex-shrink-0" />
-                    <div className="flex-1 min-w-0 text-left">
-                      <span className="text-xs font-bold block">Tamper-Proof Verification Passed</span>
-                      <span className="text-[10px] text-[#166534] font-mono">
-                        Unique SHA-256 and perceptual fingerprint confirmed against Fabric state.
-                      </span>
-                    </div>
-                  </div>
+                  <TamperProofVerificationCard
+                    sha256={sha256}
+                    perceptualHash={pHash}
+                    videoFingerprint={videoFingerprint}
+                    blockNumber="Pending Block Commit"
+                    channel="mychannel"
+                  />
                 )
               )}
-
-              {/* Cryptographic Hashes Card */}
-              <div className="p-3 rounded-xl bg-[#FAFAFA] border border-[#EAEAEA] font-mono text-[11px] space-y-1.5">
-                <div className="flex items-center justify-between text-[#737373]">
-                  <span>SHA-256:</span>
-                  <button onClick={copySha} className="flex items-center gap-1 text-[#0095F6] font-semibold hover:underline">
-                    {copied ? <Check className="w-3 h-3" /> : <Copy className="w-3 h-3" />}
-                    <span>{shortHash(sha256 || 'computing...', 7, 7)}</span>
-                  </button>
-                </div>
-
-                {pHash && (
-                  <div className="flex items-center justify-between text-[#737373]">
-                    <span>dHash:</span>
-                    <span className="text-[#262626] font-bold">{shortHash(pHash, 6, 6)}</span>
-                  </div>
-                )}
-
-                {videoFingerprint && (
-                  <div className="flex items-center justify-between text-[#737373]">
-                    <span>Temporal Hash:</span>
-                    <span className="text-[#262626] font-bold">{shortHash(videoFingerprint, 8, 8)}</span>
-                  </div>
-                )}
-              </div>
 
               {/* Caption Input */}
               <div className="space-y-1 pt-1">

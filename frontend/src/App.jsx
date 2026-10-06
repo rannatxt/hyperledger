@@ -15,6 +15,8 @@ import CommentsSheet        from './components/ios/CommentsSheet';
 import ProfileView          from './components/ios/ProfileView';
 import ExploreView          from './components/ios/ExploreView';
 import UploadSheet          from './components/ios/UploadSheet';
+import PostAcceptedToast    from './components/ios/PostAcceptedToast';
+import PostDetailsModal     from './components/common/PostDetailsModal';
 
 import { api } from './services/api';
 import { getDevicePosts, deletePostFromDevice, savePostToDevice } from './services/localStorageService';
@@ -46,23 +48,51 @@ const DEFAULT_USERS = [
     bio: 'Digital artist & tamper-proof NFT archival photographer',
     followerCount: 189,
     followingCount: 95
+  },
+  {
+    id: 'user_hyper',
+    username: 'hyper_peer',
+    displayName: 'HyperPeer Node',
+    avatarUrl: 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=150&auto=format&fit=crop&q=80',
+    bio: 'Core consensus validator & state synchronization peer on channel mychannel',
+    followerCount: 1042,
+    followingCount: 18
   }
 ];
 
 export default function App() {
   const [tab,           setTab]           = useState('feed'); // 'feed' | 'explore' | 'activity' | 'profile'
-  const [viewMode,      setViewMode]      = useState('desktop'); // 'desktop' | 'compact'
+  // Load view mode from localStorage, default to desktop view
+  const [viewMode, setViewMode] = useState(() => {
+    try {
+      const saved = window.localStorage.getItem('viewMode');
+      return saved === 'mobile-ios' ? 'mobile-ios' : 'desktop-ios';
+    } catch {
+      return 'desktop-ios';
+    }
+  });
+
+  // Sync viewMode changes to localStorage
+  useEffect(() => {
+    try {
+      window.localStorage.setItem('viewMode', viewMode);
+    } catch {}
+  }, [viewMode]);
   const [posts,         setPosts]         = useState([]);
   const [users,         setUsers]         = useState(DEFAULT_USERS);
   const [currentUser,   setCurrentUser]   = useState(DEFAULT_USERS[0]);
   const [loadingFeed,   setLoadingFeed]   = useState(true);
   const [searchQuery,   setSearchQuery]   = useState('');
 
-  // Modals
+  // Modals & Notifications
   const [uploadOpen,    setUploadOpen]    = useState(false);
   const [ledgerOpen,    setLedgerOpen]    = useState(false);
   const [commentPost,   setCommentPost]   = useState(null);
   const [selectedPost,  setSelectedPost]  = useState(null);
+  const [detailsPost,   setDetailsPost]   = useState(null);
+  const [acceptedPost,  setAcceptedPost]  = useState(null);
+
+  const isDesktop = viewMode === 'desktop-ios' || viewMode === 'desktop';
 
   // ── Init: Load local phone storage (IndexedDB) & backend users ──
   useEffect(() => {
@@ -179,10 +209,16 @@ export default function App() {
     }
   };
 
-  // ── Post Created Action ──
+  // ── Post Created Action: Accept to Ledger & Show Confirmation Toast ──
   const handlePostCreated = (newPost) => {
     if (newPost) {
       setPosts(prev => [newPost, ...prev.filter(p => p.id !== newPost.id)]);
+      // Display immediate blockchain verification confirmation
+      setAcceptedPost(newPost);
+      // Auto dismiss after 7 seconds
+      setTimeout(() => {
+        setAcceptedPost(current => (current?.id === newPost.id ? null : current));
+      }, 7000);
     }
     setTab('feed');
     window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -206,16 +242,41 @@ export default function App() {
 
   return (
     <div className="min-h-screen w-full bg-[#FFFFFF] flex flex-col items-center justify-start p-0 select-none text-[#262626] font-sans">
-      {/* ── Main Container (Pristine White Background & iOS Instagram Aesthetic) ── */}
+      {/* ── Blockchain Acceptance Confirmation Toast ── */}
+      <PostAcceptedToast
+        post={acceptedPost}
+        onClose={() => setAcceptedPost(null)}
+        onInspectLedger={(post) => openLedger(post)}
+      />
+
+      {/* ── Main Container: Default iOS Desktop View vs Authentic Framed Mobile Simulator ── */}
       <div
         className={`w-full transition-all duration-300 flex flex-col relative overflow-hidden bg-white ${
-          viewMode === 'desktop'
+          isDesktop
             ? 'h-screen max-w-full'
             : 'max-w-[440px] min-h-screen md:min-h-[850px] md:h-[92vh] md:my-5 md:rounded-[46px] border-[10px] md:border-[12px] border-[#1C1C1E] shadow-[0_25px_60px_rgba(0,0,0,0.18)]'
         }`}
       >
+        {/* ── Mobile View Top Switcher Banner (when in phone simulator mode) ── */}
+        {!isDesktop && (
+          <div className="w-full bg-[#F8F9FA] px-4 py-2 border-b border-[#EAEAEA] flex items-center justify-between text-xs font-sans">
+            <span className="flex items-center gap-1.5 text-[11px] font-semibold text-[#737373]">
+              <Smartphone className="w-3.5 h-3.5 text-[#0095F6]" />
+              <span>iPhone 16 Pro View</span>
+            </span>
+            <button
+              onClick={() => setViewMode('desktop-ios')}
+              className="flex items-center gap-1 px-2.5 py-1 rounded-full bg-[#0095F6] hover:bg-[#1877F2] text-white text-[11px] font-semibold transition-all shadow-xs active:scale-95"
+              title="Switch to iOS Desktop View"
+            >
+              <Monitor className="w-3 h-3" />
+              <span>Desktop View</span>
+            </button>
+          </div>
+        )}
+
         {/* ── Top Navigation Bar ── */}
-        {viewMode === 'desktop' ? (
+        {isDesktop ? (
           <DesktopTitleBar
             channelName="mychannel"
             blockHeight={posts.length + 1}
@@ -239,14 +300,15 @@ export default function App() {
               onRefresh={() => refreshFeed()}
               loadingFeed={loadingFeed}
               unread={1}
+              onToggleViewMode={() => setViewMode('desktop-ios')}
             />
           </>
         )}
 
-        {/* ── DESKTOP INSTAGRAM LAYOUT ── */}
-        {viewMode === 'desktop' ? (
-          <div className="flex-1 flex overflow-hidden bg-white">
-            {/* Left: Instagram Desktop Sidebar */}
+        {/* ── DEFAULT IOS DESKTOP VIEW (Photo 5 Workspace) ── */}
+        {isDesktop ? (
+          <div className="flex-1 flex overflow-hidden bg-[#FAFAFA]">
+            {/* Left: Fixed-width Sidebar Navigation */}
             <DesktopSidebar
               activeTab={tab}
               setActiveTab={setTab}
@@ -255,12 +317,12 @@ export default function App() {
               onSwitchUser={(u) => { setCurrentUser(u); refreshFeed(u.id); }}
               onOpenUpload={() => setUploadOpen(true)}
               onOpenLedger={() => setLedgerOpen(true)}
-              blockCount={posts.length + 1}
+              blockCount={posts.length + 104}
             />
 
-            {/* Center: Single-Column Instagram Feed Area */}
-            <main className="flex-1 overflow-y-auto no-scrollbar bg-white p-0 sm:py-6 flex justify-center">
-              <div className="w-full max-w-[470px] space-y-4">
+            {/* Center: Desktop Workspace Feed Area with Clean Shadows, White Background, and Smooth Padding */}
+            <main className="flex-1 overflow-y-auto no-scrollbar bg-[#F8F9FA] flex justify-center py-6 px-4 md:px-8">
+              <div className="w-full max-w-[620px] bg-[#FFFFFF] rounded-2xl border border-[#E5E5E5] shadow-[0_2px_12px_rgba(0,0,0,0.04)] p-4 sm:p-6 space-y-5">
                 {/* FEED TAB */}
                 {tab === 'feed' && (
                   <>
@@ -288,7 +350,7 @@ export default function App() {
                         </button>
                       </div>
                     ) : (
-                      <div className="space-y-4 pb-12">
+                      <div className="space-y-4 pb-6">
                         {displayedPosts.map(post => (
                           <PostCard
                             key={post.id}
@@ -307,20 +369,25 @@ export default function App() {
 
                 {/* EXPLORE TAB */}
                 {tab === 'explore' && (
-                  <ExploreView posts={posts} onSelectPost={openLedger} />
+                  <ExploreView
+                    posts={posts}
+                    onSelectPost={(post) => setDetailsPost(post)}
+                    onOpenLedger={openLedger}
+                    onOpenComments={p => setCommentPost(p)}
+                  />
                 )}
 
                 {/* ACTIVITY / LEDGER TAB */}
                 {tab === 'activity' && (
-                  <div className="p-4 space-y-4">
-                    <div className="p-4 rounded-2xl bg-[#FAFAFA] border border-[#DBDBDB] text-center space-y-2">
+                  <div className="space-y-4">
+                    <div className="p-5 rounded-2xl bg-[#FAFAFA] border border-[#E5E5E5] text-center space-y-2">
                       <h3 className="text-sm font-bold text-[#262626]">Hyperledger Activity & Endorsements</h3>
                       <p className="text-xs text-[#737373]">
                         All transactions, endorsements, and duplicate checks are logged immutably on channel <strong>mychannel</strong>.
                       </p>
                       <button
                         onClick={() => setLedgerOpen(true)}
-                        className="px-4 py-2 rounded-lg bg-[#0095F6] text-white text-xs font-semibold"
+                        className="px-4 py-2 rounded-lg bg-[#0095F6] text-white text-xs font-semibold hover:bg-[#1877F2] transition-colors"
                       >
                         Open Ledger Explorer
                       </button>
@@ -336,7 +403,7 @@ export default function App() {
                     posts={posts}
                     currentUser={currentUser}
                     onSwitchUser={u => { setCurrentUser(u); refreshFeed(u.id); }}
-                    onSelectPost={openLedger}
+                    onSelectPost={(post) => setDetailsPost(post)}
                     onDeletePost={handleDeletePost}
                   />
                 )}
@@ -348,13 +415,13 @@ export default function App() {
               currentUser={currentUser}
               users={users}
               posts={posts}
-              onSelectPost={openLedger}
+              onSelectPost={(post) => setDetailsPost(post)}
               onOpenLedger={() => setLedgerOpen(true)}
               onSwitchUser={(u) => { setCurrentUser(u); refreshFeed(u.id); }}
             />
           </div>
         ) : (
-          /* ── NATIVE IPHONE 16 PRO MOBILE VIEW ── */
+          /* ── AUTHENTIC FRAMED IOS PHONE SIMULATOR VIEW ── */
           <div className="flex-1 flex flex-col overflow-hidden relative bg-white">
             <main className="flex-1 overflow-y-auto no-scrollbar pb-20 bg-white">
               {tab === 'feed' && (
@@ -398,7 +465,14 @@ export default function App() {
                 </>
               )}
 
-              {tab === 'explore' && <ExploreView posts={posts} onSelectPost={openLedger} />}
+              {tab === 'explore' && (
+                <ExploreView
+                  posts={posts}
+                  onSelectPost={(post) => setDetailsPost(post)}
+                  onOpenLedger={openLedger}
+                  onOpenComments={p => setCommentPost(p)}
+                />
+              )}
 
               {tab === 'activity' && (
                 <div className="p-4 space-y-3">
@@ -422,7 +496,7 @@ export default function App() {
                   posts={posts}
                   currentUser={currentUser}
                   onSwitchUser={u => { setCurrentUser(u); refreshFeed(u.id); }}
-                  onSelectPost={openLedger}
+                  onSelectPost={(post) => setDetailsPost(post)}
                   onDeletePost={handleDeletePost}
                 />
               )}
@@ -439,7 +513,7 @@ export default function App() {
           </div>
         )}
 
-        {/* ── Native iOS Modals & Sheets ── */}
+        {/* ── Native Modals & Sheets ── */}
         <UploadSheet
           isOpen={uploadOpen}
           onClose={() => setUploadOpen(false)}
@@ -451,6 +525,18 @@ export default function App() {
           isOpen={ledgerOpen}
           onClose={() => { setLedgerOpen(false); setSelectedPost(null); }}
           highlightPost={selectedPost}
+        />
+
+        <PostDetailsModal
+          post={detailsPost}
+          isOpen={!!detailsPost}
+          onClose={() => setDetailsPost(null)}
+          currentUser={currentUser}
+          onLikeToggle={handleLike}
+          onOpenLedger={(post) => {
+            setDetailsPost(null);
+            openLedger(post);
+          }}
         />
 
         <CommentsSheet

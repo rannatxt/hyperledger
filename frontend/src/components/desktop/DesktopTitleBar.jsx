@@ -17,6 +17,8 @@ export default function DesktopTitleBar({
   setSearchQuery,
   onOpenUpload
 }) {
+  const isDesktop = viewMode === 'desktop-ios' || viewMode === 'desktop';
+
   return (
     <header className="h-14 w-full bg-white border-b border-[#DBDBDB] flex items-center justify-between px-4 md:px-6 select-none z-30 flex-shrink-0 font-sans">
       {/* ── Left: Brand & Fabric status ── */}
@@ -76,13 +78,13 @@ export default function DesktopTitleBar({
           <span>Create Post</span>
         </button>
 
-        {/* View Mode Switcher (Desktop Web vs iPhone 16 Pro Frame) */}
+        {/* View Mode Switcher: Desktop vs iPhone Frame */}
         <button
-          onClick={() => setViewMode(viewMode === 'desktop' ? 'compact' : 'desktop')}
+          onClick={() => setViewMode(isDesktop ? 'mobile-ios' : 'desktop-ios')}
           className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[#FAFAFA] hover:bg-[#EFEFEF] text-xs font-semibold text-[#262626] border border-[#DBDBDB] transition-all active:scale-95 ml-1"
-          title={viewMode === 'desktop' ? 'Switch to iPhone 16 Pro Frame' : 'Switch to Desktop Web View'}
+          title={isDesktop ? 'Switch to iPhone 16 Pro Frame' : 'Switch to iOS Desktop View'}
         >
-          {viewMode === 'desktop' ? (
+          {isDesktop ? (
             <>
               <Smartphone className="w-3.5 h-3.5 text-[#0095F6]" />
               <span className="hidden sm:inline">iPhone View</span>
@@ -90,7 +92,7 @@ export default function DesktopTitleBar({
           ) : (
             <>
               <Monitor className="w-3.5 h-3.5 text-[#0095F6]" />
-              <span className="hidden sm:inline">Web View</span>
+              <span className="hidden sm:inline">Desktop View</span>
             </>
           )}
         </button>

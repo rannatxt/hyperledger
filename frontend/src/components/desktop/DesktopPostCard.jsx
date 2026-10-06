@@ -7,6 +7,7 @@ import {
 } from 'lucide-react';
 import { shortHash, relativeTime } from '../../utils/crypto';
 import { getVideoPosterFallback } from '../../utils/thumbnail';
+import TamperProofVerificationCard from '../common/TamperProofVerificationCard';
 
 const FILTER_MAP = {
   Normal: 'f-normal', Clarendon: 'f-clarendon', Gingham: 'f-gingham',
@@ -323,44 +324,21 @@ export default function DesktopPostCard({
 
           {/* ── Expandable Cryptographic Ledger Proof ── */}
           {showReceipt && (
-            <div className="mt-3 p-3 rounded-2xl bg-[#F8F8F8] border border-[#EAEAEA] text-[11px] font-mono space-y-2 animate-fade-in text-[#222222]">
-              <div className="flex items-center justify-between border-b border-[#E5E5E5] pb-1.5">
-                <span className="font-bold flex items-center gap-1 text-[#E60023]">
-                  <Lock className="w-3 h-3" /> Ledger Record
-                </span>
-                <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-green-100 text-green-800 font-bold">
-                  IMMUTABLE
-                </span>
-              </div>
-
-              <div>
-                <span className="text-[#767676] block text-[10px]">Content Hash (CIDv1):</span>
-                <div className="flex items-center justify-between font-mono text-[10px] bg-white p-1.5 rounded-lg border border-[#E5E5E5] mt-0.5">
-                  <span className="truncate pr-1 text-[#111111]">{post.contentHash}</span>
-                  <button onClick={copySha} className="text-[#767676] hover:text-[#111111] p-0.5">
-                    {copiedSha ? <Check className="w-3 h-3 text-green-600" /> : <Copy className="w-3 h-3" />}
-                  </button>
-                </div>
-              </div>
-
-              {post.perceptualHash && (
-                <div>
-                  <span className="text-[#767676] block text-[10px]">Perceptual Hash (pHash):</span>
-                  <div className="flex items-center justify-between font-mono text-[10px] bg-white p-1.5 rounded-lg border border-[#E5E5E5] mt-0.5">
-                    <span className="truncate pr-1 text-[#111111]">{post.perceptualHash}</span>
-                    <button onClick={copyPHash} className="text-[#767676] hover:text-[#111111] p-0.5">
-                      {copiedPHash ? <Check className="w-3 h-3 text-green-600" /> : <Copy className="w-3 h-3" />}
-                    </button>
-                  </div>
-                </div>
-              )}
-
-              <div className="flex items-center justify-between pt-1 text-[10px] text-[#767676]">
-                <span>Peer: Org1MSP (Fabric)</span>
-                <span className="text-[#E60023] font-bold cursor-pointer" onClick={() => onOpenLedger?.(post)}>
-                  View Full Block →
-                </span>
-              </div>
+            <div className="mt-3 space-y-2 animate-fade-in">
+              <TamperProofVerificationCard
+                sha256={post.contentHash}
+                perceptualHash={post.perceptualHash}
+                videoFingerprint={post.videoFingerprint}
+                blockNumber={post.blockNumber || 105}
+                blockHash={post.blockHash}
+                channel={post.channel || 'mychannel'}
+              />
+              <button
+                onClick={() => onOpenLedger?.(post)}
+                className="w-full py-1.5 px-3 rounded-lg bg-blue-50 hover:bg-blue-100 flex items-center justify-center gap-1.5 text-[11px] font-bold text-[#0095F6] transition-colors"
+              >
+                <span>Inspect Block #{post.blockNumber || 105} on Fabric Ledger →</span>
+              </button>
             </div>
           )}
         </div>

@@ -6,6 +6,7 @@ import {
 } from 'lucide-react';
 import { shortHash, relativeTime } from '../../utils/crypto';
 import { getVideoPosterFallback } from '../../utils/thumbnail';
+import TamperProofVerificationCard from '../common/TamperProofVerificationCard';
 
 const FILTER_MAP = {
   Normal: 'f-normal', Clarendon: 'f-clarendon', Gingham: 'f-gingham',
@@ -287,35 +288,21 @@ export default function PostCard({
 
         {/* Expanded Ledger Verification Details */}
         {showProof && (
-          <div className="mt-1 p-2.5 rounded-lg bg-[#FAFAFA] border border-[#E5E5E5] space-y-1 text-[11px] font-mono animate-fade-in">
-            <div className="flex items-center justify-between text-[#737373]">
-              <span>SHA-256 (IPFS CID):</span>
-              <button onClick={copySha} className="flex items-center gap-1 text-[#0095F6] hover:underline">
-                {copiedSha ? <Check className="w-3 h-3" /> : <Copy className="w-3 h-3" />}
-                <span>{shortHash(post.contentHash, 8, 8)}</span>
-              </button>
-            </div>
-
-            {post.perceptualHash && (
-              <div className="flex items-center justify-between text-[#737373]">
-                <span>dHash (Perceptual):</span>
-                <span className="text-[#262626] font-bold">{shortHash(post.perceptualHash, 6, 6)}</span>
-              </div>
-            )}
-
-            {post.videoFingerprint && (
-              <div className="flex items-center justify-between text-[#737373]">
-                <span>Temporal Frames:</span>
-                <span className="text-[#262626] font-bold">Sequence Verified</span>
-              </div>
-            )}
-
+          <div className="mt-1.5 space-y-2 animate-fade-in">
+            <TamperProofVerificationCard
+              sha256={post.contentHash}
+              perceptualHash={post.perceptualHash}
+              videoFingerprint={post.videoFingerprint}
+              blockNumber={post.blockNumber || 105}
+              blockHash={post.blockHash}
+              channel={post.channel || 'mychannel'}
+            />
             <button
               onClick={() => onOpenLedger?.(post)}
-              className="w-full mt-1.5 pt-1 border-t border-[#EAEAEA] flex items-center justify-center gap-1 text-[10px] font-bold text-[#0095F6]"
+              className="w-full py-1.5 px-3 rounded-lg bg-blue-50 hover:bg-blue-100 flex items-center justify-center gap-1.5 text-[11px] font-bold text-[#0095F6] transition-colors"
             >
-              <ExternalLink className="w-3 h-3" />
-              <span>Inspect Block #{post.blockNumber} on Fabric Ledger</span>
+              <ExternalLink className="w-3.5 h-3.5" />
+              <span>Inspect Block #{post.blockNumber || 105} on Fabric Ledger</span>
             </button>
           </div>
         )}

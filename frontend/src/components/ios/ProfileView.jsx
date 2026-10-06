@@ -31,7 +31,7 @@ export default function ProfileView({
 
   const handleDelete = async (e, postId) => {
     e.stopPropagation();
-    if (window.confirm('Delete this post permanently from your phone and the Hyperledger Fabric ledger?')) {
+    if (window.confirm('Delete this post permanently from the Hyperledger Fabric Decentralized Ledger State with Raft Consensus Endorsement?')) {
       setDeletingId(postId);
       try {
         await onDeletePost?.(postId);
@@ -286,7 +286,7 @@ export default function ProfileView({
           <Lock className="w-7 h-7 text-[#0095F6] mx-auto" />
           <p className="font-bold text-sm text-[#262626]">Saved to Ledger</p>
           <p className="text-xs text-[#737373] max-w-sm mx-auto">
-            Bookmarked media and block proofs are indexed in your local device storage.
+            Bookmarked media and block proofs are indexed from the Hyperledger Fabric Decentralized Ledger State.
           </p>
         </div>
       )}

@@ -90,7 +90,7 @@ router.post('/', upload.single('media'), async (req, res) => {
        err.message.includes('Tamper-proof'))
     ) {
       return res.status(409).json({
-        error: 'Tamper-Proof Security Error: This media (or a cropped/trimmed variant) already exists on the ledger.',
+        error: 'Duplicate Detected (Rejected) - Tamper-Proof Blockchain Security: This media file (or a cropped/trimmed variant) has already been immutably registered on the Hyperledger Fabric channel ledger.',
         tamperProofError: true
       });
     }
@@ -141,7 +141,7 @@ router.post('/check-duplicate', upload.single('media'), async (req, res) => {
         distance: checkResult.distance,
         similarity: checkResult.similarity,
         existingPost: checkResult.existingPost,
-        error: checkResult.error || 'Tamper-Proof Security Error: This media (or a cropped/trimmed variant) already exists on the ledger.'
+        error: checkResult.error || 'Duplicate Detected (Rejected) - Tamper-Proof Blockchain Security: This media file (or a cropped/trimmed variant) has already been immutably registered on the Hyperledger Fabric channel ledger.'
       });
     }
 

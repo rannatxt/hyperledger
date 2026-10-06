@@ -1,0 +1,136 @@
+/**
+ * Mock Explore Posts from other accounts on the Hyperledger Fabric network.
+ * Provides global decentralized media assets with cryptographic hashes,
+ * perceptual dHashes, fake block hashes, and rich engagement metadata.
+ */
+
+export const MOCK_EXPLORE_POSTS = [
+  {
+    id: 'post_explore_01',
+    authorId: 'user_elena',
+    authorUsername: 'elena_crypto',
+    authorDisplayName: 'Elena Rostova',
+    authorAvatar: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=150&auto=format&fit=crop&q=80',
+    mediaType: 'image',
+    mediaUrl: 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=900&auto=format&fit=crop&q=80',
+    caption: 'Exploring immutable digital identity with composite keys on Fabric. Clean aesthetics make decentralization feel native ✨ #Hyperledger #Org1MSP #DecentralizedMedia',
+    blockNumber: 104,
+    blockHash: '0x89f4b7a192c730e52109db84a1e508fa97bc32f913d80e4b85cefa3d204859a1',
+    contentHash: 'bafybeihdwdcefgh4dqkjv67uzcmw7ojee6xedzdetojuzjevtenxquvyku',
+    perceptualHash: '01800ff01ff83ffc',
+    perceptualHashReversed: '3ffc0ff01ff80180',
+    timestamp: new Date(Date.now() - 1000 * 60 * 35).toISOString(), // 35 mins ago
+    likeCount: 342,
+    commentCount: 28,
+    isLikedByViewer: false,
+    channel: 'mychannel',
+    endorser: 'Org1MSP'
+  },
+  {
+    id: 'post_explore_02',
+    authorId: 'user_marcus',
+    authorUsername: 'marcus_art',
+    authorDisplayName: 'Marcus Chen',
+    authorAvatar: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150&auto=format&fit=crop&q=80',
+    mediaType: 'image',
+    mediaUrl: 'https://images.unsplash.com/photo-1579783900882-c0d3dad7b119?w=900&auto=format&fit=crop&q=80',
+    caption: 'Generative render pinned to IPFS and signed by Org1MSP peer. Tamper-proof perceptual hash locked at sub-pixel dHash. 🪐 #GenerativeArt #IPFS #Hyperledger',
+    blockNumber: 105,
+    blockHash: '0x72a910be5391ef40d491bc4703a8f90218b4562c5e6381047fa8bc91e7021b34',
+    contentHash: 'bafybeibml5fanx2qipldt7n76l7l2y77jygz7z3y6y5z4k7p4w6y4i5v5y',
+    perceptualHash: '5a5a5a5aa5a5a5a5',
+    perceptualHashReversed: 'a5a5a5a55a5a5a5a',
+    timestamp: new Date(Date.now() - 1000 * 60 * 75).toISOString(), // 1 hr 15 mins ago
+    likeCount: 512,
+    commentCount: 43,
+    isLikedByViewer: true,
+    channel: 'mychannel',
+    endorser: 'Org1MSP'
+  },
+  {
+    id: 'post_explore_03',
+    authorId: 'user_hyper',
+    authorUsername: 'hyper_peer',
+    authorDisplayName: 'HyperPeer Node',
+    authorAvatar: 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=150&auto=format&fit=crop&q=80',
+    mediaType: 'video',
+    mediaUrl: 'https://assets.mixkit.co/videos/preview/mixkit-circuit-board-details-in-movement-44026-large.mp4',
+    thumbnailUrl: 'https://images.unsplash.com/photo-1518770660439-4636190af475?w=800&auto=format&fit=crop&q=80',
+    caption: 'Consensus block committed across Raft orderers on channel "mychannel". Temporal keyframes verified to halt video piracy & trims! ⚡ #Fabric #RaftConsensus #Reel',
+    blockNumber: 106,
+    blockHash: '0x3e18f4cd582b9921470ad4671190ca34e908b898a39a7b7ef293049b7194821a',
+    contentHash: 'bafybeicgq5v4x64h42i7o3l6a24v2q4d3f3f2k4m3l4o2p1q4r3s2t1u4v',
+    perceptualHash: '1122334455667788',
+    videoFingerprint: 'VF1:1122334455667788,1122334455667799,11223344556677aa|8877665544332211,9977665544332211',
+    timestamp: new Date(Date.now() - 1000 * 60 * 130).toISOString(), // 2 hrs ago
+    likeCount: 628,
+    commentCount: 56,
+    isLikedByViewer: false,
+    channel: 'mychannel',
+    endorser: 'Org1MSP'
+  },
+  {
+    id: 'post_explore_04',
+    authorId: 'user_satoshi',
+    authorUsername: 'satoshi_lens',
+    authorDisplayName: 'Satoshi Lens',
+    authorAvatar: 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=150&auto=format&fit=crop&q=80',
+    mediaType: 'image',
+    mediaUrl: 'https://images.unsplash.com/photo-1542051841857-5f90071e7989?w=900&auto=format&fit=crop&q=80',
+    caption: 'Midnight neon rain in Shibuya, stamped with tamper-proof temporal headers. Immune to uncredited crops & AI cloning 📸🇯🇵 #Tokyo #DecentralizedMedia #StreetPhoto',
+    blockNumber: 107,
+    blockHash: '0x55bc81df034298fa1098bb2319ef478051287c934bca81347098eefa5480219c',
+    contentHash: 'bafybeig5v8194adk189cfb0921a8bf90123984afcb819024fbc19084af',
+    perceptualHash: '007f007f00ff01ff',
+    perceptualHashReversed: 'fe00fe00ff00ff80',
+    timestamp: new Date(Date.now() - 1000 * 60 * 240).toISOString(), // 4 hrs ago
+    likeCount: 419,
+    commentCount: 31,
+    isLikedByViewer: false,
+    channel: 'mychannel',
+    endorser: 'Org1MSP'
+  },
+  {
+    id: 'post_explore_05',
+    authorId: 'user_devon',
+    authorUsername: 'chain_crafter',
+    authorDisplayName: 'Devon Sterling',
+    authorAvatar: 'https://images.unsplash.com/photo-1570295999919-56ceb5ecca61?w=150&auto=format&fit=crop&q=80',
+    mediaType: 'image',
+    mediaUrl: 'https://images.unsplash.com/photo-1639762681485-074b7f938ba0?w=900&auto=format&fit=crop&q=80',
+    caption: 'Smart contract test suite finished with zero duplicate collisions. Perceptual dHash algorithm prevents reverse-orientation plagiarism 🛡️ #SmartContracts #Auditing',
+    blockNumber: 108,
+    blockHash: '0x9812ba3098f124ca904bca8190234facb1029348bc0192348abcdf1089201384',
+    contentHash: 'bafybeia83019481ba9081234ba09128340192834019283401928340192',
+    perceptualHash: 'f0e0d0c0b0a09080',
+    perceptualHashReversed: '08090a0b0c0d0e0f',
+    timestamp: new Date(Date.now() - 1000 * 60 * 360).toISOString(), // 6 hrs ago
+    likeCount: 289,
+    commentCount: 19,
+    isLikedByViewer: false,
+    channel: 'mychannel',
+    endorser: 'Org1MSP'
+  },
+  {
+    id: 'post_explore_06',
+    authorId: 'user_zk',
+    authorUsername: 'zk_validator',
+    authorDisplayName: 'ZK Proof Validator',
+    authorAvatar: 'https://images.unsplash.com/photo-1527980965255-d3b416303d12?w=150&auto=format&fit=crop&q=80',
+    mediaType: 'video',
+    mediaUrl: 'https://assets.mixkit.co/videos/preview/mixkit-tree-branches-in-the-breeze-1188-large.mp4',
+    thumbnailUrl: 'https://images.unsplash.com/photo-1508873696983-2df5703bc20d?w=800&auto=format&fit=crop&q=80',
+    caption: 'Zero-knowledge perceptual proofs verified on Org1MSP peer. High frame rate decentralized visual stream pinned securely 🌿 #ZeroKnowledge #Fabric',
+    blockNumber: 109,
+    blockHash: '0x4019283ba091240918230948bc01928309182309481029384019283019827394',
+    contentHash: 'bafybeid981203498120394810293840192834019283401928340192834',
+    perceptualHash: 'aabbccddeeff0011',
+    videoFingerprint: 'VF1:aabbccddeeff0011,1100ffeeddccbbaa|eeddccbbaa001122',
+    timestamp: new Date(Date.now() - 1000 * 60 * 520).toISOString(), // 8.5 hrs ago
+    likeCount: 472,
+    commentCount: 37,
+    isLikedByViewer: true,
+    channel: 'mychannel',
+    endorser: 'Org1MSP'
+  }
+];

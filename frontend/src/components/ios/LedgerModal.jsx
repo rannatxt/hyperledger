@@ -5,6 +5,7 @@ import {
 } from 'lucide-react';
 import { api } from '../../services/api';
 import { shortHash } from '../../utils/crypto';
+import TamperProofVerificationCard from '../common/TamperProofVerificationCard';
 
 export default function LedgerModal({ isOpen, onClose, highlightPost }) {
   const [tab,         setTab]         = useState('blocks');
@@ -72,6 +73,24 @@ export default function LedgerModal({ isOpen, onClose, highlightPost }) {
                 <p className={`text-xs font-bold font-mono ${m.color}`}>{m.val}</p>
               </div>
             ))}
+          </div>
+        )}
+
+        {/* Highlight Post Tamper-Proof Verification Card */}
+        {highlightPost && (
+          <div className="px-4 py-3 bg-[#F0FDF4] border-b border-[#BBF7D0]">
+            <div className="text-[10px] uppercase font-bold tracking-wider text-[#166534] mb-2 font-mono flex items-center justify-between">
+              <span>Target Inspected Asset Verification</span>
+              <span>Block #{highlightPost.blockNumber || 105}</span>
+            </div>
+            <TamperProofVerificationCard
+              sha256={highlightPost.contentHash}
+              perceptualHash={highlightPost.perceptualHash}
+              videoFingerprint={highlightPost.videoFingerprint}
+              blockNumber={highlightPost.blockNumber || 105}
+              blockHash={highlightPost.blockHash}
+              channel={highlightPost.channel || 'mychannel'}
+            />
           </div>
         )}
 
