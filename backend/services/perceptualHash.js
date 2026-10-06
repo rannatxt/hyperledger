@@ -12,9 +12,9 @@ const videoFingerprint = require('./videoFingerprint');
  */
 const HASH_BITS = 8;
 const MAX_BITS = HASH_BITS * HASH_BITS; // 64
-const DEFAULT_DISTANCE_THRESHOLD = 12;
+const DEFAULT_DISTANCE_THRESHOLD = 10;
 
-const REQUIRED_SECURITY_ALERT = 'Tamper-Proof Security Error: This media (or a cropped/trimmed variant) already exists on the ledger.';
+const REQUIRED_SECURITY_ALERT = 'Duplicate Detected (Rejected) - Hyperledger Fabric Security: This media file (or its cropped/filtered/rotated variant) has already been immutably registered on channel `mychannel`.';
 
 /**
  * Compute SHA-256 cryptographic digest of a buffer
@@ -285,6 +285,13 @@ function checkGlobalUniqueness(
 
       const candidates = [normPHash, normPReversed, normPFlipY].filter(Boolean);
       const existingHashes = [pPost, pPostRev, pPostFlipY].filter(Boolean);
+
+      // Also include 180-degree rotated hash from ledger post if available
+      const pPostRot180 = post.perceptualHashRot180 ? post.perceptualHashRot180.trim().toLowerCase() : null;
+      if (pPostRot180) existingHashes.push(pPostRot180);
+
+      // Include rot180 of the candidate upload if available
+      const normPRot180 = targetPHash ? null : null; // populated by caller if available
 
       let minDistance = MAX_BITS;
       for (const cH of candidates) {

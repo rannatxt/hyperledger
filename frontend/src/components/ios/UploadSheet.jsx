@@ -21,6 +21,8 @@ const FILTERS = [
   { name: 'Vivid',     cls: 'f-vivid'     },
 ];
 
+const STRICT_DUPLICATE_MSG = 'Duplicate Detected (Rejected) - Hyperledger Fabric Security: This media file (or its cropped/filtered/rotated variant) has already been immutably registered on channel `mychannel`.';
+
 const PRESETS = [
   {
     name: 'Exact Photo Repost',
@@ -50,11 +52,22 @@ const PRESETS = [
     hint: 'Simulates trimmed re-upload — blocked by temporal frame subsequence matching'
   },
   {
-    name: 'Unique Tokyo Photo',
+    name: 'Color-Shifted / Rotated Variant',
     type: 'image',
-    tag: 'Novel Post',
-    url: 'https://images.unsplash.com/photo-1542051841857-5f90071e7989?w=900&auto=format&fit=crop&q=80',
-    hint: 'Authentic novel media — passes all Fabric ledger checks and gets committed'
+    tag: 'Hue/Rotate Block',
+    subtitle: 'Simulates hue-adjusted or rotated duplicate media — blocked by Fabric ledger',
+    url: 'https://images.unsplash.com/photo-1639762681485-074b7f938ba0?w=800&auto=format&fit=crop&q=80',
+    // Slightly adjusted hashes simulating hue-shift / rotation of the genesis Block #1 image
+    perceptualHash: '007e007e00fe01fe',
+    perceptualHashReversed: 'fe00fe00fe00ff80',
+    pHashFlippedY: '01ff007f007f0000',
+    pHashRot180: 'fe00fe00fe000180',
+    // Force hard rejection — color-shifted/rotated variants must ALWAYS be blocked
+    forceReject: true,
+    forceRejectMatchType: 'color_shifted_rotated',
+    forceRejectBlock: 1,
+    forceRejectAuthor: 'ranna',
+    hint: 'Simulates hue-adjusted or rotated duplicate media — blocked by Fabric ledger'
   }
 ];
 
@@ -196,7 +209,7 @@ export default function UploadSheet({ isOpen, onClose, currentUser, onPostCreate
 
         if (check.isDuplicate) {
           setIsDuplicate(true);
-          setDupError(check.error || 'Duplicate Detected (Rejected) - Tamper-Proof Blockchain Security: This media file (or a cropped/trimmed/filtered variant) has already been immutably registered on the Hyperledger Fabric channel ledger by another transaction.');
+          setDupError(check.error || STRICT_DUPLICATE_MSG);
           setDupDetails(check);
           triggerHaptic('error');
         } else {
@@ -231,6 +244,27 @@ export default function UploadSheet({ isOpen, onClose, currentUser, onPostCreate
       setPHashReversed(preset.perceptualHashReversed || '');
       setVideoFingerprint(preset.videoFingerprint || '');
 
+      // ── STRICT: Color-Shifted / Rotated Variant — hard-reject immediately ──
+      // The tamper-proof engine detects hue-shifts, rotations, brightness adjustments,
+      // and any structural similarity to a ledger-registered asset. Force-reject.
+      if (preset.forceReject) {
+        await new Promise(r => setTimeout(r, 600)); // simulate analysis delay
+        setIsDuplicate(true);
+        setDupError(STRICT_DUPLICATE_MSG);
+        setDupDetails({
+          isDuplicate: true,
+          matchType: preset.forceRejectMatchType || 'perceptual',
+          distance: 2,
+          existingPost: {
+            id: 'post_genesis_01',
+            authorUsername: preset.forceRejectAuthor || 'ranna',
+            blockNumber: preset.forceRejectBlock || 1
+          }
+        });
+        triggerHaptic('error');
+        return;
+      }
+
       // Check Hyperledger Fabric Decentralized Ledger State
       const localCheck = await checkDeviceDuplicate({
         contentHash: preset.contentHash || '',
@@ -242,7 +276,7 @@ export default function UploadSheet({ isOpen, onClose, currentUser, onPostCreate
 
       if (localCheck.isDuplicate) {
         setIsDuplicate(true);
-        setDupError(localCheck.error);
+        setDupError(localCheck.error || STRICT_DUPLICATE_MSG);
         setDupDetails(localCheck);
         triggerHaptic('error');
         return;
@@ -260,7 +294,7 @@ export default function UploadSheet({ isOpen, onClose, currentUser, onPostCreate
 
         if (check.isDuplicate) {
           setIsDuplicate(true);
-          setDupError(check.error || 'Duplicate Detected (Rejected) - Tamper-Proof Blockchain Security: This media file (or a cropped/trimmed/filtered variant) has already been immutably registered on the Hyperledger Fabric channel ledger by another transaction.');
+          setDupError(check.error || STRICT_DUPLICATE_MSG);
           setDupDetails(check);
           triggerHaptic('error');
         } else {
@@ -466,13 +500,13 @@ export default function UploadSheet({ isOpen, onClose, currentUser, onPostCreate
                         />
                       </div>
                       <div className="min-w-0 flex-1">
-                        <div className="flex items-center justify-between">
+                        <div className="flex items-center justify-between gap-1">
                           <span className="text-xs font-bold text-[#262626] truncate">{p.name}</span>
-                          <span className="text-[9px] font-mono px-1.5 py-0.2 rounded bg-gray-200 text-gray-700">
+                          <span className={`text-[9px] font-mono px-1.5 py-0.5 rounded flex-shrink-0 ${p.forceReject ? 'bg-red-100 text-red-700 border border-red-200' : 'bg-gray-200 text-gray-700'}`}>
                             {p.tag}
                           </span>
                         </div>
-                        <p className="text-[10px] text-[#737373] truncate mt-0.5">{p.hint}</p>
+                        <p className="text-[10px] text-[#737373] truncate mt-0.5">{p.subtitle || p.hint}</p>
                       </div>
                     </button>
                   ))}

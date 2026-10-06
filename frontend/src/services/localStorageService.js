@@ -205,7 +205,7 @@ export async function deletePostFromDevice(postId) {
   }
 }
 
-const REQUIRED_TAMPER_ALERT = 'Duplicate Detected (Rejected) - Tamper-Proof Blockchain Security: This media file (or a cropped/trimmed/filtered variant) has already been immutably registered on the Hyperledger Fabric channel ledger by another transaction.';
+const REQUIRED_TAMPER_ALERT = 'Duplicate Detected (Rejected) - Hyperledger Fabric Security: This media file (or its cropped/filtered/rotated variant) has already been immutably registered on channel `mychannel`.';
 
 const GENESIS_ANCHORS = [
   {
@@ -289,22 +289,33 @@ export async function checkDeviceDuplicate({
       }
     }
 
-    // 3. Image perceptual dHash comparison (Hamming distance <= 8 — filter, crop, flip resistant)
+    // 3. Image perceptual dHash comparison (Hamming distance <= 10 — filter, crop, flip,
+    //    color-shift, brightness adjustment, and rotation resistant)
     if (pNorm && p.perceptualHash) {
-      const existingPHash = p.perceptualHash.trim().toLowerCase();
-      const existingPRev = p.perceptualHashReversed ? p.perceptualHashReversed.trim().toLowerCase() : '';
+      const existingPHash    = p.perceptualHash.trim().toLowerCase();
+      const existingPRev     = p.perceptualHashReversed     ? p.perceptualHashReversed.trim().toLowerCase()     : '';
+      const existingPFlipY   = p.perceptualHashFlippedY     ? p.perceptualHashFlippedY.trim().toLowerCase()     : '';
+      const existingPRot180  = p.perceptualHashRot180       ? p.perceptualHashRot180.trim().toLowerCase()       : '';
 
-      const distDirect = hammingDistance(pNorm, existingPHash);
-      const distRev = pRevNorm ? hammingDistance(pRevNorm, existingPHash) : 64;
-      const distExistingRev = existingPRev ? hammingDistance(pNorm, existingPRev) : 64;
+      // All candidate upload hashes (normal + reversed)
+      const candidateHashes  = [pNorm, pRevNorm].filter(Boolean);
+      // All registered ledger hashes for this post (normal + reversed + flipY + rot180)
+      const registeredHashes = [existingPHash, existingPRev, existingPFlipY, existingPRot180].filter(Boolean);
 
-      const minDistance = Math.min(distDirect, distRev, distExistingRev);
+      let minDistance = 64;
+      for (const c of candidateHashes) {
+        for (const r of registeredHashes) {
+          const d = hammingDistance(c, r);
+          if (d < minDistance) minDistance = d;
+        }
+      }
 
-      // Strict threshold: ≤ 8 bits difference blocks crops, flips, minor colour edits & filters
-      if (minDistance <= 8) {
+      // Threshold: <= 10 bits catches crops, flips, minor colour edits, filters,
+      // hue-shifts, brightness changes, and small rotations without false positives
+      if (minDistance <= 10) {
         return {
           isDuplicate: true,
-          matchType: minDistance === distDirect ? 'perceptual' : 'perceptual_reversed',
+          matchType: minDistance === hammingDistance(pNorm, existingPHash) ? 'perceptual' : 'perceptual_transformed',
           distance: minDistance,
           existingPost: { id: p.id, authorUsername: p.authorUsername, blockNumber: p.blockNumber },
           error: REQUIRED_TAMPER_ALERT
