@@ -14,7 +14,7 @@ const HASH_BITS = 8;
 const MAX_BITS = HASH_BITS * HASH_BITS; // 64
 const DEFAULT_DISTANCE_THRESHOLD = 10;
 
-const REQUIRED_SECURITY_ALERT = 'Duplicate Detected (Rejected) - Hyperledger Fabric Security: This media file (or its cropped/filtered/rotated variant) has already been immutably registered on channel `mychannel`.';
+const REQUIRED_SECURITY_ALERT = 'Tamper-Proof Security Error: This media (or a cropped/trimmed variant) already exists on the ledger.';
 
 /**
  * Compute SHA-256 cryptographic digest of a buffer

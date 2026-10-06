@@ -24,6 +24,22 @@ const STRICT_DUPLICATE_MSG = 'Duplicate Detected (Rejected) - Hyperledger Fabric
 
 const PRESETS = [
   {
+    name: 'Color-Shifted / Rotated Variant',
+    type: 'image',
+    tag: 'Hue/Rotate Block',
+    subtitle: 'Simulates hue-adjusted or rotated duplicate media — blocked by Fabric ledger',
+    url: 'https://images.unsplash.com/photo-1639762681485-074b7f938ba0?w=800&auto=format&fit=crop&q=80',
+    perceptualHash: '007e007e00fe01fe',
+    perceptualHashReversed: 'fe00fe00fe00ff80',
+    pHashFlippedY: '01ff007f007f0000',
+    pHashRot180: 'fe00fe00fe000180',
+    forceReject: true,
+    forceRejectMatchType: 'color_shifted_rotated',
+    forceRejectBlock: 1,
+    forceRejectAuthor: 'ranna',
+    hint: 'Simulates hue-adjusted or rotated duplicate media — blocked by Fabric ledger'
+  },
+  {
     name: 'Exact Photo Repost',
     type: 'image',
     tag: 'Exact Repost',
@@ -49,24 +65,6 @@ const PRESETS = [
     thumbnailUrl: 'https://images.unsplash.com/photo-1518770660439-4636190af475?w=800&auto=format&fit=crop&q=80',
     videoFingerprint: 'VF1:1122334455667799,11223344556677aa|9977665544332211,aa77665544332211',
     hint: 'Simulates trimmed re-upload — blocked by temporal frame subsequence matching'
-  },
-  {
-    name: 'Color-Shifted / Rotated Variant',
-    type: 'image',
-    tag: 'Hue/Rotate Block',
-    subtitle: 'Simulates hue-adjusted or rotated duplicate media — blocked by Fabric ledger',
-    url: 'https://images.unsplash.com/photo-1639762681485-074b7f938ba0?w=800&auto=format&fit=crop&q=80',
-    // Slightly adjusted hashes simulating hue-shift / rotation of the genesis Block #1 image
-    perceptualHash: '007e007e00fe01fe',
-    perceptualHashReversed: 'fe00fe00fe00ff80',
-    pHashFlippedY: '01ff007f007f0000',
-    pHashRot180: 'fe00fe00fe000180',
-    // Force hard rejection — color-shifted/rotated variants must ALWAYS be blocked
-    forceReject: true,
-    forceRejectMatchType: 'color_shifted_rotated',
-    forceRejectBlock: 1,
-    forceRejectAuthor: 'ranna',
-    hint: 'Simulates hue-adjusted or rotated duplicate media — blocked by Fabric ledger'
   }
 ];
 

@@ -207,5 +207,18 @@
     "dataUrl": "data:video/mp4;base64,bW9jayB2aWRlbyBieXRlcyBmb3IgYXV0b21hdGVkIHRlc3RpbmcgMTc5MTI5MzM0NzY4MA==",
     "filePath": "C:\\Users\\Raana\\OneDrive\\Desktop\\ranna\\projects\\hyperledger\\backend\\uploads\\bafkafkreifawd7uckbtkvvlmobd2ekeyjchnfzwj4ljil7d3ykpvy7z6uptre.mp4",
     "storageProvider": "cloud-mapping"
+  },
+  "bafkafkreihdqllpvczgo77w47tgsbcybgy5ui4qua5hclzo5kl3lj3zowblra": {
+    "cid": "bafkafkreihdqllpvczgo77w47tgsbcybgy5ui4qua5hclzo5kl3lj3zowblra",
+    "filename": "bafkafkreihdqllpvczgo77w47tgsbcybgy5ui4qua5hclzo5kl3lj3zowblra.mp4",
+    "originalName": "test_video.mp4",
+    "mimeType": "video/mp4",
+    "size": 52,
+    "timestamp": "2026-10-06T15:06:15.498Z",
+    "pinned": true,
+    "cloudUrl": "/api/ipfs/bafkafkreihdqllpvczgo77w47tgsbcybgy5ui4qua5hclzo5kl3lj3zowblra",
+    "dataUrl": "data:video/mp4;base64,bW9jayB2aWRlbyBieXRlcyBmb3IgYXV0b21hdGVkIHRlc3RpbmcgMTc5MTI5OTE3NTQ5NA==",
+    "filePath": "C:\\Users\\Raana\\OneDrive\\Desktop\\ranna\\projects\\hyperledger\\backend\\uploads\\bafkafkreihdqllpvczgo77w47tgsbcybgy5ui4qua5hclzo5kl3lj3zowblra.mp4",
+    "storageProvider": "cloud-mapping"
   }
 }
