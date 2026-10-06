@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { RefreshCw, Monitor, Layers } from 'lucide-react';
+import { RefreshCw, Monitor, Layers, Plus, ShieldCheck, Heart, Sparkles } from 'lucide-react';
 
 import DesktopTitleBar      from './components/desktop/DesktopTitleBar';
 import DesktopSidebar       from './components/desktop/DesktopSidebar';
@@ -25,6 +25,7 @@ export default function App() {
   const [users,         setUsers]         = useState([]);
   const [currentUser,   setCurrentUser]   = useState(null);
   const [loadingFeed,   setLoadingFeed]   = useState(true);
+  const [searchQuery,   setSearchQuery]   = useState('');
 
   // Modal states
   const [uploadOpen,    setUploadOpen]    = useState(false);
@@ -80,6 +81,21 @@ export default function App() {
     }
   };
 
+  // ── Delete Post Action (Immediate UI & Ledger removal) ──
+  const handleDeletePost = async (postId) => {
+    if (!currentUser) return;
+    // Optimistic removal from state
+    setPosts(prev => prev.filter(p => p.id !== postId));
+    try {
+      await api.deletePost(postId, currentUser.id);
+    } catch (err) {
+      console.error('Delete post error on ledger:', err);
+      // Revert if failed
+      refreshFeed();
+      throw err;
+    }
+  };
+
   // ── Post created ──
   const handlePostCreated = (result) => {
     const newPost = result?.post ?? result;
@@ -92,32 +108,54 @@ export default function App() {
     setLedgerOpen(true);
   };
 
+  // Filter posts by search query if typed
+  const displayedPosts = posts.filter(p => {
+    if (!searchQuery) return true;
+    const q = searchQuery.toLowerCase();
+    return (
+      p.caption?.toLowerCase().includes(q) ||
+      p.authorUsername?.toLowerCase().includes(q) ||
+      p.contentHash?.toLowerCase().includes(q)
+    );
+  });
+
   return (
-    <div className="min-h-screen w-full bg-[#070b14] bg-[radial-gradient(ellipse_80%_80%_at_50%_-20%,rgba(0,122,255,0.15),rgba(255,255,255,0))] flex items-center justify-center p-0 md:p-6 lg:p-8 select-none">
-      {/* ── Native Mac Catalyst / iPadOS Centered Container ── */}
+    <div className="min-h-screen w-full bg-[#FFFFFF] flex flex-col items-center justify-start p-0 select-none text-[#111111]">
+      {/* ── Main Container (Pinterest Clean White Aesthetic) ── */}
       <div
-        className={`w-full transition-all duration-300 flex flex-col relative overflow-hidden bg-black/95 backdrop-blur-2xl ${
+        className={`w-full transition-all duration-300 flex flex-col relative overflow-hidden bg-white ${
           viewMode === 'desktop'
-            ? 'max-w-[1400px] h-screen md:h-[92vh] max-h-[960px] md:rounded-[28px] border border-white/[0.12] shadow-[0_30px_90px_rgba(0,0,0,0.85),0_0_80px_rgba(0,122,255,0.08)]'
-            : 'max-w-[470px] min-h-screen md:min-h-[880px] md:h-[90vh] md:rounded-[40px] border border-white/[0.12] shadow-[0_20px_60px_rgba(0,0,0,0.8)]'
+            ? 'h-screen max-w-full'
+            : 'max-w-[470px] min-h-screen md:min-h-[880px] md:h-[90vh] md:my-6 md:rounded-[36px] border border-[#EAEAEA] shadow-[0_20px_50px_rgba(0,0,0,0.08)]'
         }`}
       >
-        {/* ── Desktop Title Bar (Traffic Lights, Channel, Sync) ── */}
-        <DesktopTitleBar
-          channelName="mychannel"
-          blockHeight={posts.length + 1}
-          currentUser={currentUser}
-          onRefresh={() => refreshFeed()}
-          loadingFeed={loadingFeed}
-          viewMode={viewMode}
-          setViewMode={setViewMode}
-          onOpenLedger={() => setLedgerOpen(true)}
-        />
-
-        {/* ── DESKTOP SPLIT LAYOUT ── */}
+        {/* ── Pinterest Clean Header ── */}
         {viewMode === 'desktop' ? (
-          <div className="flex-1 flex overflow-hidden">
-            {/* Left: Mac Catalyst Sidebar */}
+          <DesktopTitleBar
+            channelName="mychannel"
+            blockHeight={posts.length + 1}
+            currentUser={currentUser}
+            onRefresh={() => refreshFeed()}
+            loadingFeed={loadingFeed}
+            viewMode={viewMode}
+            setViewMode={setViewMode}
+            onOpenLedger={() => setLedgerOpen(true)}
+            searchQuery={searchQuery}
+            setSearchQuery={setSearchQuery}
+            onOpenUpload={() => setUploadOpen(true)}
+          />
+        ) : (
+          <NavHeader
+            onOpenLedger={() => setLedgerOpen(true)}
+            onOpenActivity={() => setLedgerOpen(true)}
+            unread={2}
+          />
+        )}
+
+        {/* ── DESKTOP SPLIT / MASONRY LAYOUT ── */}
+        {viewMode === 'desktop' ? (
+          <div className="flex-1 flex overflow-hidden bg-white">
+            {/* Left: Navigation Sidebar */}
             <DesktopSidebar
               activeTab={tab}
               setActiveTab={setTab}
@@ -129,9 +167,9 @@ export default function App() {
               blockCount={posts.length + 1}
             />
 
-            {/* Center: Main Scroll Area (Feed / Explore / Profile) */}
-            <main className="flex-1 overflow-y-auto no-scrollbar bg-black/60 p-4 lg:p-6 border-r border-white/[0.06]">
-              <div className="max-w-[620px] mx-auto space-y-4">
+            {/* Center: Pinterest Masonry Scroll Area */}
+            <main className="flex-1 overflow-y-auto no-scrollbar bg-white p-4 lg:p-6 border-r border-[#EFEFEF]">
+              <div className="max-w-[1280px] mx-auto space-y-5">
                 {/* FEED TAB */}
                 {tab === 'feed' && (
                   <>
@@ -141,43 +179,54 @@ export default function App() {
                     />
 
                     {/* Channel Ledger Ticker */}
-                    <div className="flex items-center justify-between px-3 py-2 text-[11px] text-gray-400 font-mono rounded-[14px] bg-[#141416] border border-white/[0.06]">
-                      <span className="flex items-center gap-1.5">
-                        <span className="w-1.5 h-1.5 rounded-full bg-[#34c759] animate-pulse" />
-                        Fabric channel: <strong className="text-white ml-0.5">mychannel</strong>
-                        <span className="text-gray-500">|</span>
-                        <span>State: Org1MSP (Raft Orderer)</span>
+                    <div className="flex items-center justify-between px-4 py-2.5 text-xs text-[#555555] font-mono rounded-2xl bg-[#F8F8F8] border border-[#EAEAEA]">
+                      <span className="flex items-center gap-2">
+                        <span className="w-2 h-2 rounded-full bg-[#27ae60] animate-pulse" />
+                        Fabric channel: <strong className="text-[#111111]">mychannel</strong>
+                        <span className="text-gray-300">|</span>
+                        <span>Consensus: Raft Orderer · Org1MSP Verified</span>
                       </span>
+
                       <button
                         onClick={() => refreshFeed()}
-                        className="flex items-center gap-1 hover:text-white transition-colors"
+                        className="flex items-center gap-1.5 font-bold text-[#111111] hover:text-[#E60023] transition-colors"
                       >
-                        <RefreshCw className={`w-3 h-3 ${loadingFeed ? 'animate-spin text-[#007aff]' : ''}`} />
+                        <RefreshCw className={`w-3.5 h-3.5 ${loadingFeed ? 'animate-spin text-[#E60023]' : ''}`} />
                         <span>Sync</span>
                       </button>
                     </div>
 
-                    {/* Posts List */}
+                    {/* Pinterest Masonry Grid of Pin Cards */}
                     {loadingFeed && posts.length === 0 ? (
-                      <div className="flex flex-col items-center justify-center py-24 text-gray-400 text-xs gap-2">
-                        <div className="w-6 h-6 border-2 border-[#007aff] border-t-transparent rounded-full animate-spin" />
-                        Synchronising Hyperledger Fabric ledger…
+                      <div className="flex flex-col items-center justify-center py-24 text-[#767676] text-xs gap-3">
+                        <div className="w-8 h-8 border-3 border-[#E60023] border-t-transparent rounded-full animate-spin" />
+                        <span>Synchronising Hyperledger Fabric blocks…</span>
                       </div>
-                    ) : posts.length === 0 ? (
-                      <div className="py-24 text-center text-xs text-gray-400">
-                        No blocks committed yet — be the first to mint a post!
+                    ) : displayedPosts.length === 0 ? (
+                      <div className="py-24 text-center space-y-2">
+                        <p className="text-sm font-bold text-[#111111]">No pins found</p>
+                        <p className="text-xs text-[#767676]">Be the first to publish a verified pin to the ledger!</p>
+                        <button
+                          onClick={() => setUploadOpen(true)}
+                          className="mt-3 px-5 py-2 rounded-full bg-[#E60023] text-white font-bold text-xs shadow-md"
+                        >
+                          Create Pin
+                        </button>
                       </div>
                     ) : (
-                      posts.map(post => (
-                        <DesktopPostCard
-                          key={post.id}
-                          post={post}
-                          currentUser={currentUser}
-                          onLikeToggle={handleLike}
-                          onOpenComments={p => setCommentPost(p)}
-                          onOpenLedger={openLedger}
-                        />
-                      ))
+                      <div className="masonry-columns w-full">
+                        {displayedPosts.map(post => (
+                          <DesktopPostCard
+                            key={post.id}
+                            post={post}
+                            currentUser={currentUser}
+                            onLikeToggle={handleLike}
+                            onOpenComments={p => setCommentPost(p)}
+                            onOpenLedger={openLedger}
+                            onDeletePost={handleDeletePost}
+                          />
+                        ))}
+                      </div>
                     )}
                   </>
                 )}
@@ -196,6 +245,7 @@ export default function App() {
                     currentUser={currentUser}
                     onSwitchUser={u => { setCurrentUser(u); refreshFeed(u.id); }}
                     onSelectPost={openLedger}
+                    onDeletePost={handleDeletePost}
                   />
                 )}
               </div>
@@ -213,43 +263,41 @@ export default function App() {
           </div>
         ) : (
           /* ── COMPACT IPAD / IPHONE VIEW ── */
-          <div className="flex-1 flex flex-col overflow-hidden relative">
+          <div className="flex-1 flex flex-col overflow-hidden relative bg-white">
             <StatusBar onDynamicIslandClick={() => setLedgerOpen(true)} />
-            <NavHeader
-              onOpenLedger={() => setLedgerOpen(true)}
-              onOpenActivity={() => setLedgerOpen(true)}
-              unread={2}
-            />
 
-            <main className="flex-1 overflow-y-auto no-scrollbar pb-24">
+            <main className="flex-1 overflow-y-auto no-scrollbar pb-24 bg-white">
               {tab === 'feed' && (
-                <div>
+                <div className="p-3">
                   <StoriesBar
                     currentUser={currentUser}
                     onOpenUpload={() => setUploadOpen(true)}
                   />
 
-                  <div className="flex items-center justify-between px-3 py-2 text-[11px] text-gray-400 font-mono border-b border-white/[0.05]">
+                  <div className="flex items-center justify-between px-3 py-2 text-[11px] text-[#555555] font-mono border-b border-[#EFEFEF] mb-3">
                     <span className="flex items-center gap-1.5">
-                      <span className="w-1.5 h-1.5 rounded-full bg-[#34c759] animate-pulse" />
-                      Fabric channel: <strong className="text-white ml-0.5">mychannel</strong>
+                      <span className="w-1.5 h-1.5 rounded-full bg-[#27ae60] animate-pulse" />
+                      Fabric: <strong className="text-[#111111]">mychannel</strong>
                     </span>
-                    <button onClick={() => refreshFeed()} className="flex items-center gap-1 hover:text-white transition-colors">
-                      <RefreshCw className={`w-3 h-3 ${loadingFeed ? 'animate-spin text-[#007aff]' : ''}`} />
+                    <button onClick={() => refreshFeed()} className="flex items-center gap-1 hover:text-[#E60023] font-bold">
+                      <RefreshCw className={`w-3 h-3 ${loadingFeed ? 'animate-spin text-[#E60023]' : ''}`} />
                       Sync
                     </button>
                   </div>
 
-                  {posts.map(post => (
-                    <DesktopPostCard
-                      key={post.id}
-                      post={post}
-                      currentUser={currentUser}
-                      onLikeToggle={handleLike}
-                      onOpenComments={p => setCommentPost(p)}
-                      onOpenLedger={openLedger}
-                    />
-                  ))}
+                  <div className="space-y-4">
+                    {displayedPosts.map(post => (
+                      <DesktopPostCard
+                        key={post.id}
+                        post={post}
+                        currentUser={currentUser}
+                        onLikeToggle={handleLike}
+                        onOpenComments={p => setCommentPost(p)}
+                        onOpenLedger={openLedger}
+                        onDeletePost={handleDeletePost}
+                      />
+                    ))}
+                  </div>
                 </div>
               )}
 
@@ -263,6 +311,7 @@ export default function App() {
                   currentUser={currentUser}
                   onSwitchUser={u => { setCurrentUser(u); refreshFeed(u.id); }}
                   onSelectPost={openLedger}
+                  onDeletePost={handleDeletePost}
                 />
               )}
             </main>

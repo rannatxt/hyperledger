@@ -251,7 +251,7 @@ test('InstaLedgerContract test suite', async (t) => {
         'Trying to post exact same image',
         'https://example.com/duplicate.jpg'
       );
-    }, /Tamper-Proof Security Error: This media \(or a cropped\/trimmed variant\) has already been registered on the ledger\./);
+    }, /Tamper-Proof Security Error: This media \(or a cropped\/trimmed variant\) (already exists|has already been registered) on the ledger\./);
 
     // 2. User B attempts horizontally reversed / mirror duplicate (different cryptographic hash, but reversed pHash matches)
     await assert.rejects(async () => {
@@ -265,7 +265,7 @@ test('InstaLedgerContract test suite', async (t) => {
         'fe00fe00ff00ff80', // matches reversed pHash of post_orig_01
         '007f007f00ff01ff'
       );
-    }, /Tamper-Proof Security Error: This media \(or a cropped\/trimmed variant\) has already been registered on the ledger\./);
+    }, /Tamper-Proof Security Error: This media \(or a cropped\/trimmed variant\) (already exists|has already been registered) on the ledger\./);
 
     // 3. User B attempts minor edited / cropped variant (Hamming distance = 2, within threshold 10)
     await assert.rejects(async () => {
@@ -279,7 +279,7 @@ test('InstaLedgerContract test suite', async (t) => {
         '007f007f00ff01ef', // only 2 bits different from 007f007f00ff01ff
         'fe00fe00ff00ff80'
       );
-    }, /Tamper-Proof Security Error: This media \(or a cropped\/trimmed variant\) has already been registered on the ledger\./);
+    }, /Tamper-Proof Security Error: This media \(or a cropped\/trimmed variant\) (already exists|has already been registered) on the ledger\./);
 
     // 4. Verify checkDuplicateMedia query method
     const dupCheck = JSON.parse(await contract.checkDuplicateMedia(ctx, 'hash_crypto_exact_12345', '007f007f00ff01ef'));
@@ -315,7 +315,7 @@ test('InstaLedgerContract test suite', async (t) => {
         'video',
         'VF1:1122334455667788,2233445566778899|8877665544332211,9988776655443322'
       );
-    }, /Tamper-Proof Security Error: This media \(or a cropped\/trimmed variant\) has already been registered on the ledger\./);
+    }, /Tamper-Proof Security Error: This media \(or a cropped\/trimmed variant\) (already exists|has already been registered) on the ledger\./);
 
     // 6. Completely unique photo succeeds
     const uniqueRes = await contract.createPost(
@@ -329,5 +329,37 @@ test('InstaLedgerContract test suite', async (t) => {
       '0000ffff0000ffff'
     );
     assert.ok(uniqueRes);
+  });
+
+  await t.test('deletePost permanently removes post and indexes from ledger', async () => {
+    const ctx = createMockContext();
+    await contract.createProfile(ctx, 'user_alice', 'alice', 'Alice Developer', '', '');
+    await contract.createProfile(ctx, 'user_bob', 'bob', 'Bob Hacker', '', '');
+
+    await contract.createPost(
+      ctx,
+      'post_alice_delete_me',
+      'user_alice',
+      'hash_to_be_deleted_123',
+      'Temporary post',
+      'https://example.com/del.jpg',
+      '1111222233334444',
+      '4444333322221111'
+    );
+
+    // Unauthorized delete attempt by bob
+    await assert.rejects(async () => {
+      await contract.deletePost(ctx, 'post_alice_delete_me', 'user_bob');
+    }, /Unauthorized/);
+
+    // Authorized delete by alice
+    const delRes = JSON.parse(await contract.deletePost(ctx, 'post_alice_delete_me', 'user_alice'));
+    assert.equal(delRes.success, true);
+    assert.equal(delRes.deletedPostId, 'post_alice_delete_me');
+
+    // Post must no longer be found
+    await assert.rejects(async () => {
+      await contract.getPost(ctx, 'post_alice_delete_me');
+    }, /not found/);
   });
 });

@@ -1,4 +1,4 @@
-const BASE = 'https://hyperledger-backend.vercel.app';
+const BASE = import.meta.env.VITE_API_URL || (typeof window !== 'undefined' && window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1' ? '' : 'http://localhost:5000');
 
 async function json(res) {
   const data = await res.json();
@@ -20,6 +20,13 @@ export const api = {
 
   createPost: (formData) =>
     fetch(`${BASE}/api/posts`, { method: 'POST', body: formData }).then(json),
+
+  deletePost: (postId, authorId) =>
+    fetch(`${BASE}/api/posts/${postId}`, {
+      method: 'DELETE',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ authorId })
+    }).then(json),
 
   checkDuplicate: (payload) => {
     if (typeof payload === 'string') {

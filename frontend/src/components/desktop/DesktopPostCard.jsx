@@ -2,10 +2,11 @@ import { useState, useRef } from 'react';
 import {
   Heart, MessageCircle, Send, Bookmark,
   MoreHorizontal, CheckCircle2, ShieldCheck,
-  Copy, Check, Lock, ExternalLink, Eye, Video,
-  Volume2, VolumeX, Play, Pause
+  Trash2, Lock, Play, Pause, Volume2, VolumeX,
+  ExternalLink, Copy, Check, Video, Eye, Share2
 } from 'lucide-react';
 import { shortHash, relativeTime } from '../../utils/crypto';
+import { getVideoPosterFallback } from '../../utils/thumbnail';
 
 const FILTER_MAP = {
   Normal: 'f-normal', Clarendon: 'f-clarendon', Gingham: 'f-gingham',
@@ -17,19 +18,28 @@ export default function DesktopPostCard({
   currentUser,
   onLikeToggle,
   onOpenComments,
-  onOpenLedger
+  onOpenLedger,
+  onDeletePost
 }) {
   const [showHeart, setShowHeart] = useState(false);
   const [saved, setSaved] = useState(false);
   const [showReceipt, setShowReceipt] = useState(false);
   const [copiedSha, setCopiedSha] = useState(false);
   const [copiedPHash, setCopiedPHash] = useState(false);
-  const [isPlaying, setIsPlaying] = useState(true);
+  const [isHovered, setIsHovered] = useState(false);
+  const [isPlaying, setIsPlaying] = useState(false);
   const [isMuted, setIsMuted] = useState(true);
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [menuOpen, setMenuOpen] = useState(false);
+
   const videoRef = useRef(null);
   const lastTap = useRef(0);
 
   const isVideo = post.mediaType === 'video' || /\.(mp4|webm|mov|m4v)$/i.test(post.mediaUrl || '');
+  const isOwner = currentUser && post.authorId === currentUser.id;
+
+  // Determine thumbnail or media to show
+  const displayThumbnail = post.thumbnailUrl || (isVideo ? getVideoPosterFallback(post.caption || 'Video Reel', post.id) : post.mediaUrl);
 
   const handleTap = () => {
     const now = Date.now();
@@ -63,6 +73,20 @@ export default function DesktopPostCard({
     setIsMuted(videoRef.current.muted);
   };
 
+  const handleDelete = async (e) => {
+    e.stopPropagation();
+    if (isDeleting) return;
+    if (confirm('Delete this post permanently from the Hyperledger Fabric ledger?')) {
+      setIsDeleting(true);
+      try {
+        await onDeletePost?.(post.id);
+      } catch (err) {
+        setIsDeleting(false);
+        alert('Failed to delete post: ' + err.message);
+      }
+    }
+  };
+
   const copySha = (e) => {
     e.stopPropagation();
     navigator.clipboard.writeText(post.contentHash);
@@ -83,225 +107,264 @@ export default function DesktopPostCard({
   const filterClass = FILTER_MAP[post.filterName] || 'f-normal';
 
   return (
-    <article className="w-full bg-[#141416] border border-white/[0.08] rounded-[24px] mb-4 overflow-hidden select-none font-sans shadow-lg shadow-black/40">
-      {/* ── Header ── */}
-      <div className="flex items-center justify-between px-4 py-3 border-b border-white/[0.05]">
-        <div className="flex items-center gap-2.5 cursor-pointer">
-          <div className="w-9 h-9 rounded-full story-ring p-[1.5px]">
-            <div className="w-full h-full bg-black rounded-full p-[1.5px]">
-              <img
-                src={post.authorAvatar}
-                alt={post.authorUsername}
-                className="w-full h-full rounded-full object-cover"
-              />
-            </div>
-          </div>
-          <div>
-            <div className="flex items-center gap-1">
-              <span className="text-xs font-bold text-white tracking-tight">{post.authorUsername}</span>
-              <CheckCircle2 className="w-3.5 h-3.5 text-[#007aff] fill-[#007aff]" />
-            </div>
-            <div className="flex items-center gap-1.5 text-[10px] text-gray-400 font-mono">
-              <span className="w-1.5 h-1.5 rounded-full bg-[#34c759]" />
-              <span>Block #{post.blockNumber ?? '0'}</span>
-              <span>· Org1MSP</span>
-            </div>
-          </div>
-        </div>
-
-        <div className="flex items-center gap-2">
-          {isVideo && (
-            <span className="px-2 py-0.5 rounded-full bg-[#ff2d55]/20 text-[#ff2d55] text-[10px] font-mono font-bold flex items-center gap-1 border border-[#ff2d55]/30">
-              <Video className="w-3 h-3" /> VIDEO
-            </span>
-          )}
-          <button
-            onClick={() => onOpenLedger?.(post)}
-            className="text-gray-400 hover:text-white p-1.5 rounded-lg hover:bg-white/5 active:scale-90 transition-all"
-            title="Inspect Ledger Record"
-          >
-            <MoreHorizontal className="w-4 h-4" />
-          </button>
-        </div>
-      </div>
-
-      {/* ── Media Viewport (Video or Image) ── */}
-      <div onClick={handleTap} className="relative w-full aspect-square bg-[#0a0a0a] overflow-hidden cursor-pointer">
-        {isVideo ? (
-          <div className="relative w-full h-full">
-            <video
-              ref={videoRef}
-              src={post.mediaUrl}
-              autoPlay
-              loop
-              muted={isMuted}
-              playsInline
-              className="w-full h-full object-cover"
-            />
-
-            {/* Video Controls Overlay */}
-            <div className="absolute bottom-3 right-3 flex items-center gap-2 z-10">
-              <button
-                onClick={toggleAudio}
-                className="p-2 rounded-full bg-black/70 text-white backdrop-blur-md hover:bg-black/90 active:scale-90 transition-all border border-white/10"
-              >
-                {isMuted ? <VolumeX className="w-3.5 h-3.5" /> : <Volume2 className="w-3.5 h-3.5 text-[#007aff]" />}
-              </button>
-              <button
-                onClick={toggleVideoPlayback}
-                className="p-2 rounded-full bg-black/70 text-white backdrop-blur-md hover:bg-black/90 active:scale-90 transition-all border border-white/10"
-              >
-                {isPlaying ? <Pause className="w-3.5 h-3.5" /> : <Play className="w-3.5 h-3.5 text-[#34c759]" />}
-              </button>
-            </div>
-          </div>
-        ) : (
-          <img
-            src={post.mediaUrl}
-            alt="post media"
-            className={`w-full h-full object-cover ${filterClass}`}
-          />
-        )}
-
-        {/* Double-tap floating heart with spring burst */}
-        {showHeart && (
-          <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-20">
-            <Heart className="w-28 h-28 text-white fill-white drop-shadow-[0_0_28px_rgba(255,45,85,0.95)] animate-heart-burst" />
-          </div>
-        )}
-      </div>
-
-      {/* ── Action Toolbar ── */}
-      <div className="px-4 pt-3 pb-2">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-4">
-            <button
-              onClick={() => onLikeToggle(post.id)}
-              className="active:scale-80 transition-transform"
-            >
-              <Heart
-                className={`w-6 h-6 stroke-[1.8] transition-colors ${
-                  post.isLikedByViewer
-                    ? 'text-[#ff2d55] fill-[#ff2d55]'
-                    : 'text-white hover:text-gray-300'
-                }`}
-              />
-            </button>
-            <button
-              onClick={() => onOpenComments(post)}
-              className="text-white hover:text-gray-300 active:scale-80 transition-transform"
-            >
-              <MessageCircle className="w-6 h-6 stroke-[1.8]" />
-            </button>
-            <button
-              onClick={() => onOpenLedger?.(post)}
-              className="text-white hover:text-gray-300 active:scale-80 transition-transform"
-            >
-              <Send className="w-6 h-6 stroke-[1.8]" />
-            </button>
-          </div>
-
-          <div className="flex items-center gap-2">
-            <button
-              onClick={() => setShowReceipt(!showReceipt)}
-              className={`flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-mono font-semibold transition-all ${
-                showReceipt
-                  ? 'bg-[#007aff] text-white shadow-md shadow-blue-500/25'
-                  : 'bg-white/10 text-gray-300 hover:bg-white/15'
-              }`}
-            >
-              <ShieldCheck className="w-3.5 h-3.5 text-[#007aff]" />
-              <span>Ledger Receipt</span>
-            </button>
-
-            <button
-              onClick={() => setSaved(!saved)}
-              className="text-white hover:text-gray-300 active:scale-80 transition-transform ml-1"
-            >
-              <Bookmark className={`w-5 h-5 stroke-[1.8] ${saved ? 'text-yellow-400 fill-yellow-400' : ''}`} />
-            </button>
-          </div>
-        </div>
-
-        {/* Like count */}
-        <div className="mt-2 text-xs font-bold text-white tracking-tight">
-          {(post.likeCount || 0).toLocaleString()} likes
-        </div>
-
-        {/* Caption */}
-        <div className="mt-1 text-xs text-gray-200 leading-relaxed">
-          <span className="font-bold text-white mr-1.5">{post.authorUsername}</span>
-          <span>{post.caption}</span>
-        </div>
-
-        {/* Comments count */}
-        <button
-          onClick={() => onOpenComments(post)}
-          className="mt-1.5 text-xs text-gray-400 hover:text-gray-300 block font-normal"
+    <article
+      onMouseEnter={() => setIsHovered(true)}
+      onMouseLeave={() => { setIsHovered(false); setMenuOpen(false); }}
+      className={`masonry-brick group transition-all duration-300 ${isDeleting ? 'opacity-30 scale-95 pointer-events-none' : ''}`}
+    >
+      <div className="bg-white rounded-[20px] border border-[#EFEFEF] overflow-hidden shadow-[0_2px_8px_rgba(0,0,0,0.04)] hover:shadow-[0_16px_32px_rgba(0,0,0,0.1)] transition-all duration-300">
+        
+        {/* ── Visual Media Container (Pinterest Card Pin) ── */}
+        <div
+          onClick={handleTap}
+          className="relative w-full overflow-hidden bg-[#F5F5F5] cursor-zoom-in"
         >
-          {post.commentCount > 0
-            ? `View all ${post.commentCount} comments`
-            : 'Add a comment…'}
-        </button>
+          {isVideo && isPlaying ? (
+            <div className="relative w-full aspect-[4/5] bg-black">
+              <video
+                ref={videoRef}
+                src={post.mediaUrl}
+                autoPlay
+                loop
+                muted={isMuted}
+                playsInline
+                className="w-full h-full object-cover"
+              />
+              {/* Live Video Controls */}
+              <div className="absolute bottom-3 right-3 flex items-center gap-1.5 z-20">
+                <button
+                  onClick={toggleAudio}
+                  className="p-2 rounded-full bg-black/70 hover:bg-black text-white backdrop-blur-md active:scale-95 transition-all"
+                  title={isMuted ? 'Unmute' : 'Mute'}
+                >
+                  {isMuted ? <VolumeX className="w-3.5 h-3.5" /> : <Volume2 className="w-3.5 h-3.5 text-[#E60023]" />}
+                </button>
+                <button
+                  onClick={toggleVideoPlayback}
+                  className="p-2 rounded-full bg-black/70 hover:bg-black text-white backdrop-blur-md active:scale-95 transition-all"
+                  title="Pause"
+                >
+                  <Pause className="w-3.5 h-3.5" />
+                </button>
+              </div>
+            </div>
+          ) : (
+            <div className="relative w-full aspect-[4/5] overflow-hidden group">
+              <img
+                src={displayThumbnail}
+                alt={post.caption || 'Media post'}
+                className={`w-full h-full object-cover transition-transform duration-500 group-hover:scale-105 ${filterClass}`}
+                loading="lazy"
+              />
 
-        {/* Timestamp */}
-        <div className="mt-1 text-[10px] text-gray-400 font-mono uppercase tracking-wider">
-          {relativeTime(post.timestamp)}
-        </div>
-      </div>
+              {/* Video Badge / Play Trigger */}
+              {isVideo && (
+                <div
+                  onClick={(e) => { e.stopPropagation(); setIsPlaying(true); }}
+                  className="absolute inset-0 flex items-center justify-center bg-black/20 group-hover:bg-black/35 transition-colors cursor-pointer"
+                >
+                  <div className="w-13 h-13 rounded-full bg-white/95 text-[#E60023] flex items-center justify-center shadow-lg group-hover:scale-110 active:scale-95 transition-all p-3">
+                    <Play className="w-6 h-6 fill-[#E60023] translate-x-0.5" />
+                  </div>
+                  <span className="absolute top-3 left-3 px-2 py-0.5 rounded-full bg-black/60 backdrop-blur-md text-white text-[10px] font-bold font-mono tracking-wider flex items-center gap-1 border border-white/20">
+                    <Video className="w-3 h-3 text-[#E60023]" /> VIDEO
+                  </span>
+                </div>
+              )}
+            </div>
+          )}
 
-      {/* ── Expandable Hyperledger Fabric Cryptographic Receipt ── */}
-      {showReceipt && (
-        <div className="mx-3.5 mb-3.5 p-3 rounded-[18px] bg-black/60 border border-white/10 space-y-2 animate-fade-in text-[11px] font-mono">
-          <div className="flex items-center justify-between text-xs font-bold text-white border-b border-white/[0.08] pb-1.5">
-            <span className="flex items-center gap-1.5 text-[#007aff]">
-              <Lock className="w-3.5 h-3.5" /> Immutable Fabric Ledger Proof
-            </span>
-            <span className="text-[10px] text-[#34c759] font-normal font-mono">VERIFIED BLOCK</span>
-          </div>
+          {/* ── Double-Tap Heart Burst Animation ── */}
+          {showHeart && (
+            <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-30">
+              <Heart className="w-24 h-24 text-white fill-[#E60023] drop-shadow-[0_8px_24px_rgba(230,0,35,0.7)] animate-heart-burst" />
+            </div>
+          )}
 
-          <div className="space-y-1 text-gray-300">
-            <div className="flex justify-between items-center">
-              <span className="text-gray-400">Content Multihash:</span>
-              <button onClick={copySha} className="flex items-center gap-1 text-[#007aff] hover:underline text-[10px]">
-                {copiedSha ? <Check className="w-3 h-3 text-[#34c759]" /> : <Copy className="w-3 h-3" />}
-                {shortHash(post.contentHash, 8, 8)}
+          {/* ── Pinterest Hover Floating Actions Overlay ── */}
+          <div
+            className={`absolute inset-0 pointer-events-none transition-opacity duration-200 z-10 p-3 flex flex-col justify-between ${
+              isHovered ? 'opacity-100' : 'opacity-0'
+            }`}
+          >
+            {/* Top Row: Fabric Block Badge & Red Save / Pin Pill */}
+            <div className="flex items-center justify-between pointer-events-auto">
+              <span className="px-2.5 py-1 rounded-full bg-white/90 backdrop-blur-md text-[11px] font-mono font-semibold text-[#111111] shadow-sm flex items-center gap-1 border border-black/5">
+                <span className="w-1.5 h-1.5 rounded-full bg-[#27ae60]" />
+                #{post.blockNumber ?? '0'} Fabric
+              </span>
+
+              <button
+                onClick={(e) => { e.stopPropagation(); setSaved(!saved); }}
+                className={`px-4 py-1.5 rounded-full text-xs font-bold transition-all shadow-md active:scale-95 ${
+                  saved
+                    ? 'bg-[#111111] text-white'
+                    : 'bg-[#E60023] hover:bg-[#AD081B] text-white'
+                }`}
+              >
+                {saved ? 'Saved' : 'Save'}
               </button>
             </div>
 
-            {post.videoFingerprint ? (
-              <div className="flex justify-between items-center">
-                <span className="text-gray-400 flex items-center gap-1">
-                  <Video className="w-3 h-3 text-[#ff2d55]" /> Video Signature:
-                </span>
-                <button onClick={copyPHash} className="flex items-center gap-1 text-[#007aff] hover:underline text-[10px]">
-                  {copiedPHash ? <Check className="w-3 h-3 text-[#34c759]" /> : <Copy className="w-3 h-3" />}
-                  {shortHash(post.videoFingerprint, 8, 8)}
+            {/* Bottom Row: Quick Actions (Receipt, Like, and Delete Button if Author) */}
+            <div className="flex items-center justify-between pointer-events-auto">
+              <div className="flex items-center gap-1.5">
+                {/* Proof / Receipt Button */}
+                <button
+                  onClick={(e) => { e.stopPropagation(); setShowReceipt(!showReceipt); }}
+                  className={`p-2 rounded-full text-xs font-semibold backdrop-blur-md shadow-md transition-all active:scale-90 ${
+                    showReceipt ? 'bg-[#E60023] text-white' : 'bg-white/90 hover:bg-white text-[#111111]'
+                  }`}
+                  title="Fabric Ledger Proof"
+                >
+                  <ShieldCheck className="w-4 h-4" />
                 </button>
-              </div>
-            ) : post.perceptualHash ? (
-              <div className="flex justify-between items-center">
-                <span className="text-gray-400 flex items-center gap-1">
-                  <Eye className="w-3 h-3 text-[#007aff]" /> Image pHash:
-                </span>
-                <button onClick={copyPHash} className="flex items-center gap-1 text-[#007aff] hover:underline text-[10px]">
-                  {copiedPHash ? <Check className="w-3 h-3 text-[#34c759]" /> : <Copy className="w-3 h-3" />}
-                  0x{post.perceptualHash}
-                </button>
-              </div>
-            ) : null}
 
-            <div className="flex justify-between items-center">
-              <span className="text-gray-400">Endorsing Peer:</span>
-              <span className="text-white">peer0.org1.example.com</span>
-            </div>
-            <div className="flex justify-between items-center">
-              <span className="text-gray-400">Consensus Orderer:</span>
-              <span className="text-white">Raft (TLS 1.3 mutual auth)</span>
+                {/* Inspect Modal Trigger */}
+                <button
+                  onClick={(e) => { e.stopPropagation(); onOpenLedger?.(post); }}
+                  className="p-2 rounded-full bg-white/90 hover:bg-white text-[#111111] backdrop-blur-md shadow-md transition-all active:scale-90"
+                  title="Inspect on Hyperledger Blockchain"
+                >
+                  <ExternalLink className="w-4 h-4" />
+                </button>
+              </div>
+
+              <div className="flex items-center gap-1.5">
+                {/* Delete Button (prominently available for post owner) */}
+                {isOwner && (
+                  <button
+                    onClick={handleDelete}
+                    disabled={isDeleting}
+                    className="p-2 rounded-full bg-white/95 hover:bg-[#E60023] text-red-600 hover:text-white backdrop-blur-md shadow-md transition-all active:scale-90 border border-red-100"
+                    title="Delete post permanently from ledger"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                  </button>
+                )}
+
+                {/* Like Button */}
+                <button
+                  onClick={(e) => { e.stopPropagation(); onLikeToggle(post.id); }}
+                  className="p-2 rounded-full bg-white/90 hover:bg-white text-[#111111] backdrop-blur-md shadow-md transition-all active:scale-90"
+                  title={post.isLikedByViewer ? 'Unlike' : 'Like'}
+                >
+                  <Heart
+                    className={`w-4 h-4 transition-colors ${
+                      post.isLikedByViewer
+                        ? 'fill-[#E60023] text-[#E60023]'
+                        : 'text-[#111111]'
+                    }`}
+                  />
+                </button>
+              </div>
             </div>
           </div>
         </div>
-      )}
+
+        {/* ── Pin Details & Metadata (Clean White Typography) ── */}
+        <div className="p-3.5 space-y-2">
+          {/* Caption */}
+          {post.caption && (
+            <p className="text-xs font-semibold text-[#111111] leading-snug line-clamp-2">
+              {post.caption}
+            </p>
+          )}
+
+          {/* Author & Interactions Row */}
+          <div className="flex items-center justify-between pt-1">
+            <div className="flex items-center gap-2 min-w-0">
+              <img
+                src={post.authorAvatar || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=80&auto=format&fit=crop&q=80'}
+                alt={post.authorUsername}
+                className="w-6 h-6 rounded-full object-cover ring-1 ring-black/10 flex-shrink-0"
+              />
+              <div className="min-w-0">
+                <span className="text-xs font-bold text-[#111111] truncate block hover:underline cursor-pointer">
+                  {post.authorUsername}
+                </span>
+                <span className="text-[10px] text-[#767676] font-mono block">
+                  {relativeTime(post.timestamp)}
+                </span>
+              </div>
+            </div>
+
+            {/* Counts & More Options */}
+            <div className="flex items-center gap-2.5 flex-shrink-0">
+              {/* Likes & Comments Count */}
+              <button
+                onClick={(e) => { e.stopPropagation(); onLikeToggle(post.id); }}
+                className="flex items-center gap-1 text-[11px] font-semibold text-[#555555] hover:text-[#E60023] transition-colors"
+              >
+                <Heart className={`w-3.5 h-3.5 ${post.isLikedByViewer ? 'fill-[#E60023] text-[#E60023]' : ''}`} />
+                <span>{post.likeCount || 0}</span>
+              </button>
+
+              <button
+                onClick={(e) => { e.stopPropagation(); onOpenComments(post); }}
+                className="flex items-center gap-1 text-[11px] font-semibold text-[#555555] hover:text-[#111111] transition-colors"
+              >
+                <MessageCircle className="w-3.5 h-3.5" />
+                <span>{post.commentCount || 0}</span>
+              </button>
+
+              {/* Owner menu with delete option */}
+              {isOwner && (
+                <button
+                  onClick={handleDelete}
+                  className="p-1 rounded-full text-gray-400 hover:text-red-600 hover:bg-red-50 transition-colors"
+                  title="Delete post"
+                >
+                  <Trash2 className="w-3.5 h-3.5" />
+                </button>
+              )}
+            </div>
+          </div>
+
+          {/* ── Expandable Cryptographic Ledger Proof ── */}
+          {showReceipt && (
+            <div className="mt-3 p-3 rounded-2xl bg-[#F8F8F8] border border-[#EAEAEA] text-[11px] font-mono space-y-2 animate-fade-in text-[#222222]">
+              <div className="flex items-center justify-between border-b border-[#E5E5E5] pb-1.5">
+                <span className="font-bold flex items-center gap-1 text-[#E60023]">
+                  <Lock className="w-3 h-3" /> Ledger Record
+                </span>
+                <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-green-100 text-green-800 font-bold">
+                  IMMUTABLE
+                </span>
+              </div>
+
+              <div>
+                <span className="text-[#767676] block text-[10px]">Content Hash (CIDv1):</span>
+                <div className="flex items-center justify-between font-mono text-[10px] bg-white p-1.5 rounded-lg border border-[#E5E5E5] mt-0.5">
+                  <span className="truncate pr-1 text-[#111111]">{post.contentHash}</span>
+                  <button onClick={copySha} className="text-[#767676] hover:text-[#111111] p-0.5">
+                    {copiedSha ? <Check className="w-3 h-3 text-green-600" /> : <Copy className="w-3 h-3" />}
+                  </button>
+                </div>
+              </div>
+
+              {post.perceptualHash && (
+                <div>
+                  <span className="text-[#767676] block text-[10px]">Perceptual Hash (pHash):</span>
+                  <div className="flex items-center justify-between font-mono text-[10px] bg-white p-1.5 rounded-lg border border-[#E5E5E5] mt-0.5">
+                    <span className="truncate pr-1 text-[#111111]">{post.perceptualHash}</span>
+                    <button onClick={copyPHash} className="text-[#767676] hover:text-[#111111] p-0.5">
+                      {copiedPHash ? <Check className="w-3 h-3 text-green-600" /> : <Copy className="w-3 h-3" />}
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              <div className="flex items-center justify-between pt-1 text-[10px] text-[#767676]">
+                <span>Peer: Org1MSP (Fabric)</span>
+                <span className="text-[#E60023] font-bold cursor-pointer" onClick={() => onOpenLedger?.(post)}>
+                  View Full Block →
+                </span>
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
     </article>
   );
 }

@@ -2,10 +2,11 @@ import { useState, useRef } from 'react';
 import {
   X, Upload, ShieldCheck, AlertTriangle,
   CheckCircle2, Loader2, ArrowRight, Lock, Sparkles,
-  Eye, Video, Copy, Check, Film, Layers
+  Eye, Video, Copy, Check, Film, Layers, Play
 } from 'lucide-react';
 import { computeFileSHA256, shortHash } from '../../utils/crypto';
 import { computeClientPerceptualHash, computeClientVideoFingerprint } from '../../utils/perceptualHash';
+import { extractVideoThumbnail, getVideoPosterFallback } from '../../utils/thumbnail';
 import { api } from '../../services/api';
 
 const FILTERS = [
@@ -43,6 +44,7 @@ const PRESETS = [
     tag: 'Exact Video',
     url: 'https://assets.mixkit.co/videos/preview/mixkit-circuit-board-details-in-movement-44026-large.mp4',
     contentHash: 'bafybeicgq5v4x64h42i7o3l6a24v2q4d3f3f2k4m3l4o2p1q4r3s2t1u4v',
+    thumbnailUrl: 'https://images.unsplash.com/photo-1518770660439-4636190af475?w=800&auto=format&fit=crop&q=80',
     videoFingerprint: 'VF1:1122334455667788,1122334455667799,11223344556677aa,11223344556677bb|8877665544332211,9977665544332211,aa77665544332211,bb77665544332211',
     hint: 'Simulates duplicate of Genesis Video Reel #4'
   },
@@ -51,6 +53,7 @@ const PRESETS = [
     type: 'video',
     tag: 'Trim Resistance',
     url: 'https://assets.mixkit.co/videos/preview/mixkit-circuit-board-details-in-movement-44026-large.mp4',
+    thumbnailUrl: 'https://images.unsplash.com/photo-1518770660439-4636190af475?w=800&auto=format&fit=crop&q=80',
     videoFingerprint: 'VF1:1122334455667799,11223344556677aa|9977665544332211,aa77665544332211',
     hint: 'Simulates trimmed edges of Video #4 (subsequence match)'
   },
@@ -66,14 +69,16 @@ const PRESETS = [
     type: 'video',
     tag: 'Unique Video',
     url: 'https://assets.mixkit.co/videos/preview/mixkit-tree-branches-in-the-breeze-1188-large.mp4',
+    thumbnailUrl: 'https://images.unsplash.com/photo-1508873696983-2df5703bc20d?w=800&auto=format&fit=crop&q=80',
     hint: 'Fresh generative video reel'
   }
 ];
 
 export default function DesktopUploadModal({ isOpen, onClose, currentUser, onPostCreated }) {
   const [file,             setFile]             = useState(null);
-  const [mediaType,         setMediaType]         = useState('image'); // 'image' | 'video'
+  const [mediaType,        setMediaType]        = useState('image'); // 'image' | 'video'
   const [preview,          setPreview]          = useState('');
+  const [thumbnailUrl,     setThumbnailUrl]     = useState('');
   const [sha256,           setSha256]           = useState('');
   const [pHash,            setPHash]            = useState('');
   const [pHashReversed,    setPHashReversed]    = useState('');
@@ -95,6 +100,7 @@ export default function DesktopUploadModal({ isOpen, onClose, currentUser, onPos
     setFile(null);
     setMediaType('image');
     setPreview('');
+    setThumbnailUrl('');
     setSha256('');
     setPHash('');
     setPHashReversed('');
@@ -137,6 +143,14 @@ export default function DesktopUploadModal({ isOpen, onClose, currentUser, onPos
       let vSignature = '';
 
       if (isVid) {
+        // Extract crisp video thumbnail frame
+        try {
+          const thumb = await extractVideoThumbnail(f, 0.5);
+          if (thumb) setThumbnailUrl(thumb);
+        } catch (e) {
+          console.warn('Thumbnail capture fallback:', e);
+        }
+
         try {
           const vFp = await computeClientVideoFingerprint(f);
           vSignature = vFp.signature;
@@ -185,6 +199,7 @@ export default function DesktopUploadModal({ isOpen, onClose, currentUser, onPos
     setHashing(true);
     setMediaType(preset.type || 'image');
     setPreview(preset.url);
+    setThumbnailUrl(preset.thumbnailUrl || (preset.type === 'video' ? getVideoPosterFallback(preset.name, preset.contentHash) : ''));
     setStage(1);
     setIsDuplicate(false);
     setDupError('');
@@ -224,11 +239,11 @@ export default function DesktopUploadModal({ isOpen, onClose, currentUser, onPos
 
     try {
       setStageMsg('1. Computing SHA-256 multihash and temporal video/image fingerprint…');
-      await new Promise(r => setTimeout(r, 400));
+      await new Promise(r => setTimeout(r, 350));
       setStageMsg('2. Verifying cross-user global uniqueness across Fabric state…');
-      await new Promise(r => setTimeout(r, 400));
-      setStageMsg('3. Pinning payload to IPFS and requesting endorsement on Org1MSP peer…');
-      await new Promise(r => setTimeout(r, 400));
+      await new Promise(r => setTimeout(r, 350));
+      setStageMsg('3. Pinning payload to cloud-backed IPFS storage layer…');
+      await new Promise(r => setTimeout(r, 350));
       setStageMsg('4. Mining immutable block on Hyperledger Fabric channel "mychannel"…');
 
       const fd = new FormData();
@@ -241,13 +256,14 @@ export default function DesktopUploadModal({ isOpen, onClose, currentUser, onPos
       fd.append('authorId', currentUser.id);
       fd.append('caption', caption || 'Decentralized media post verified on Hyperledger Fabric ⛓️');
       fd.append('mediaType', mediaType);
+      if (thumbnailUrl) fd.append('thumbnailUrl', thumbnailUrl);
       if (pHash) fd.append('perceptualHash', pHash);
       if (pHashReversed) fd.append('perceptualHashReversed', pHashReversed);
       if (videoFingerprint) fd.append('videoFingerprint', videoFingerprint);
 
       const result = await api.createPost(fd);
       setStageMsg('✅ Block successfully committed! Immutably registered on ledger.');
-      await new Promise(r => setTimeout(r, 600));
+      await new Promise(r => setTimeout(r, 500));
       onPostCreated(result);
       close();
     } catch (err) {
@@ -255,7 +271,8 @@ export default function DesktopUploadModal({ isOpen, onClose, currentUser, onPos
       if (
         err.tamperProofError ||
         err.message?.includes('Tamper-Proof Blockchain Security') ||
-        err.message?.includes('Blockchain Security Alert')
+        err.message?.includes('Blockchain Security Alert') ||
+        err.message?.includes('Tamper-proof')
       ) {
         setIsDuplicate(true);
         setDupError(err.message || 'Tamper-Proof Blockchain Security: This media file (or a cropped/trimmed variant) has already been registered on the ledger.');
@@ -275,51 +292,57 @@ export default function DesktopUploadModal({ isOpen, onClose, currentUser, onPos
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/85 backdrop-blur-xl animate-fade-in p-4 select-none">
-      <div className="relative w-full max-w-[620px] bg-[#18181b] border border-white/15 rounded-[28px] shadow-2xl shadow-black overflow-hidden flex flex-col max-h-[90vh]">
-        {/* ── Native Mac Catalyst / iOS Window Header ── */}
-        <div className="flex items-center justify-between px-5 py-3.5 border-b border-white/[0.08] bg-[#141416]">
-          <div className="flex items-center gap-2">
-            <div className="w-3 h-3 rounded-full bg-[#ff5f56] opacity-80" />
-            <div className="w-3 h-3 rounded-full bg-[#ffbd2e] opacity-80" />
-            <div className="w-3 h-3 rounded-full bg-[#27c93f] opacity-80" />
-            <span className="ml-2 text-xs font-bold text-white tracking-tight">New Ledger Media Post</span>
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-md animate-fade-in p-4 select-none">
+      <div className="relative w-full max-w-[620px] bg-white border border-[#EAEAEA] rounded-[28px] shadow-[0_20px_60px_rgba(0,0,0,0.18)] overflow-hidden flex flex-col max-h-[90vh]">
+        {/* ── Pinterest Clean Window Header ── */}
+        <div className="flex items-center justify-between px-6 py-4 border-b border-[#EFEFEF] bg-white">
+          <div className="flex items-center gap-2.5">
+            <div className="w-8 h-8 rounded-full bg-[#E60023] text-white flex items-center justify-center font-bold text-sm">
+              <span>⛓</span>
+            </div>
+            <div>
+              <span className="text-sm font-extrabold text-[#111111]">Create Pin on Ledger</span>
+              <span className="text-[10px] text-[#767676] block font-mono">Org1MSP · Hyperledger Fabric</span>
+            </div>
           </div>
 
           <div className="flex items-center gap-3">
             <button
               onClick={close}
-              className="text-xs text-gray-400 hover:text-white transition-colors"
+              className="text-xs font-semibold text-[#767676] hover:text-[#111111] transition-colors px-2 py-1"
             >
               Cancel
             </button>
             <button
               onClick={submit}
               disabled={(!preview && !file) || hashing || isDuplicate || stage === 2}
-              className={`text-xs px-3.5 py-1.5 rounded-full font-bold transition-all ${
+              className={`text-xs px-5 py-2 rounded-full font-bold transition-all ${
                 (preview || file) && !isDuplicate && !hashing && stage !== 2
-                  ? 'bg-[#007aff] text-white hover:bg-blue-600 shadow-md shadow-blue-500/20 active:scale-95'
-                  : 'bg-white/5 text-gray-500 cursor-not-allowed'
+                  ? 'bg-[#E60023] hover:bg-[#AD081B] text-white shadow-md active:scale-95'
+                  : 'bg-[#F0F0F0] text-[#A0A0A0] cursor-not-allowed'
               }`}
             >
-              {stage === 2 ? 'Minting Block…' : 'Share to Ledger'}
+              {stage === 2 ? 'Minting…' : 'Publish to Ledger'}
             </button>
           </div>
         </div>
 
         {/* ── Body ── */}
-        <div className="p-5 overflow-y-auto no-scrollbar space-y-4 flex-1">
+        <div className="p-6 overflow-y-auto no-scrollbar space-y-5 flex-1 bg-white">
           {/* STAGE 0: Media Picker */}
           {stage === 0 && (
-            <div className="space-y-4">
-              <div className="flex flex-col items-center py-8 px-4 border-2 border-dashed border-white/15 rounded-[24px] bg-[#121214] text-center space-y-3">
-                <div className="w-16 h-16 rounded-full bg-[#007aff]/15 flex items-center justify-center text-[#007aff]">
-                  <Upload className="w-8 h-8 stroke-[1.8]" />
+            <div className="space-y-5">
+              <div
+                onClick={() => fileRef.current?.click()}
+                className="flex flex-col items-center py-10 px-6 border-2 border-dashed border-[#DDDDDD] hover:border-[#E60023] rounded-[24px] bg-[#FAFAFA] hover:bg-[#FFF9F9] text-center space-y-3 cursor-pointer transition-all"
+              >
+                <div className="w-16 h-16 rounded-full bg-[#FFF0F2] flex items-center justify-center text-[#E60023] shadow-sm">
+                  <Upload className="w-8 h-8 stroke-[2]" />
                 </div>
                 <div>
-                  <h3 className="text-base font-bold text-white mb-1">Select Photo or Video to Notarize</h3>
-                  <p className="text-xs text-gray-400 max-w-sm leading-relaxed">
-                    Supports high-resolution images and MP4/WebM videos. Perceptual hashing and temporal frame alignment block duplicates globally across all accounts.
+                  <h3 className="text-base font-bold text-[#111111] mb-1">Choose a file to notarize</h3>
+                  <p className="text-xs text-[#767676] max-w-sm leading-relaxed">
+                    Upload images (JPG, PNG) or videos (MP4, WebM). Thumbnails are extracted automatically, and cross-account duplicates are blocked by perceptual hashing.
                   </p>
                 </div>
 
@@ -331,43 +354,41 @@ export default function DesktopUploadModal({ isOpen, onClose, currentUser, onPos
                   onChange={e => { const f = e.target.files?.[0]; if (f) processMediaFile(f); }}
                 />
 
-                <div className="flex gap-2 pt-1">
+                <div className="pt-2">
                   <button
-                    onClick={() => fileRef.current?.click()}
-                    className="ios-btn-blue text-xs px-5 py-2.5 shadow-lg shadow-blue-500/20 active:scale-95 transition-transform flex items-center gap-1.5"
+                    onClick={(e) => { e.stopPropagation(); fileRef.current?.click(); }}
+                    className="px-6 py-2.5 rounded-full bg-[#E60023] hover:bg-[#AD081B] text-white font-bold text-xs shadow-md active:scale-95 transition-all"
                   >
-                    <Upload className="w-3.5 h-3.5" /> Choose Photo or Video
+                    Select from device
                   </button>
                 </div>
               </div>
 
               {/* Duplicate & Tamper-Proofing Test Presets */}
               <div className="pt-2">
-                <div className="flex items-center justify-between mb-2 px-1">
-                  <span className="text-[11px] font-bold text-gray-300 uppercase tracking-wider flex items-center gap-1">
-                    <Sparkles className="w-3.5 h-3.5 text-yellow-400" /> Multi-Media Duplicate Test Presets
+                <div className="flex items-center justify-between mb-3 px-1">
+                  <span className="text-xs font-bold text-[#111111] uppercase tracking-wider flex items-center gap-1.5">
+                    <Sparkles className="w-4 h-4 text-[#E60023]" /> Tamper-Proof Test Presets
                   </span>
-                  <span className="text-[10px] text-gray-500 font-mono">1-Click Verification</span>
+                  <span className="text-[11px] text-[#767676] font-mono">1-Click Duplicate Check</span>
                 </div>
 
-                <div className="grid grid-cols-2 gap-2">
+                <div className="grid grid-cols-2 gap-2.5">
                   {PRESETS.map(p => (
                     <button
                       key={p.name}
                       onClick={() => loadPreset(p)}
-                      className="p-3 rounded-[16px] bg-[#141416] border border-white/10 hover:border-[#007aff]/50 text-left transition-all group"
+                      className="p-3.5 rounded-2xl bg-[#F8F8F8] hover:bg-white border border-[#EAEAEA] hover:border-[#E60023] hover:shadow-md text-left transition-all group"
                     >
-                      <div className="flex items-center justify-between mb-1">
-                        <span className="text-xs font-bold text-white group-hover:text-[#007aff] transition-colors">{p.name}</span>
-                        <span className={`text-[9px] px-1.5 py-0.5 rounded-full font-bold font-mono ${
-                          p.tag.includes('Exact') || p.tag.includes('Perceptual') || p.tag.includes('Trim')
-                            ? 'bg-[#ff3b30]/20 text-[#ff3b30]'
-                            : 'bg-[#34c759]/20 text-[#34c759]'
+                      <div className="flex items-center justify-between mb-1.5">
+                        <span className="text-xs font-bold text-[#111111] group-hover:text-[#E60023] transition-colors">{p.name}</span>
+                        <span className={`text-[10px] px-2 py-0.5 rounded-full font-mono font-bold ${
+                          p.type === 'video' ? 'bg-[#FFF0F2] text-[#E60023]' : 'bg-[#EAEAEA] text-[#555555]'
                         }`}>
                           {p.tag}
                         </span>
                       </div>
-                      <span className="text-[10px] text-gray-400 leading-tight block">{p.hint}</span>
+                      <p className="text-[11px] text-[#767676] leading-snug">{p.hint}</p>
                     </button>
                   ))}
                 </div>
@@ -375,180 +396,122 @@ export default function DesktopUploadModal({ isOpen, onClose, currentUser, onPos
             </div>
           )}
 
-          {/* STAGE 1: Media Preview & Multi-Media Analysis HUD */}
+          {/* STAGE 1: Review, Edit & Security Check */}
           {stage === 1 && (
             <div className="space-y-4">
-              {/* Media Preview Box */}
-              <div className="relative w-full aspect-video rounded-[22px] overflow-hidden border border-white/15 bg-black">
+              {/* Media Preview & Thumbnail Preview */}
+              <div className="relative rounded-[20px] overflow-hidden bg-[#F5F5F5] border border-[#EAEAEA] aspect-[4/3] flex items-center justify-center">
                 {mediaType === 'video' ? (
-                  <video
-                    src={preview}
-                    autoPlay
-                    loop
-                    muted
-                    controls
-                    className="w-full h-full object-contain"
-                  />
+                  <div className="relative w-full h-full bg-black">
+                    <video
+                      src={preview}
+                      poster={thumbnailUrl}
+                      controls
+                      className="w-full h-full object-contain"
+                    />
+                    {thumbnailUrl && (
+                      <div className="absolute top-3 right-3 px-2 py-1 rounded-full bg-white/90 backdrop-blur-md text-[10px] font-bold text-[#111111] flex items-center gap-1 shadow-sm">
+                        <Check className="w-3 h-3 text-[#27ae60]" /> Thumbnail Extracted
+                      </div>
+                    )}
+                  </div>
                 ) : (
                   <img
                     src={preview}
                     alt="preview"
-                    className={`w-full h-full object-cover ${filter.cls}`}
+                    className={`w-full h-full object-contain ${filter.cls}`}
                   />
                 )}
 
                 <button
-                  onClick={reset}
-                  className="absolute top-3 right-3 p-1.5 rounded-full bg-black/70 text-white backdrop-blur-md active:scale-90 transition-transform"
+                  onClick={() => setStage(0)}
+                  className="absolute top-3 left-3 px-3 py-1.5 rounded-full bg-white/90 hover:bg-white text-xs font-bold text-[#111111] shadow-sm transition-all"
                 >
-                  <X className="w-4 h-4" />
+                  Change Media
                 </button>
-
-                <div className="absolute bottom-3 left-3 px-2.5 py-1 rounded-full bg-black/70 backdrop-blur-md text-[10px] font-mono text-gray-300 border border-white/10">
-                  Type: {mediaType.toUpperCase()}
-                </div>
               </div>
 
-              {/* ── Multi-Media Fingerprinting HUD ── */}
-              <div className="p-4 rounded-[20px] bg-[#121214] border border-white/10 space-y-3">
-                <div className="flex items-center justify-between border-b border-white/[0.08] pb-2">
-                  <div className="flex items-center gap-1.5 text-xs font-bold text-white">
-                    <ShieldCheck className="w-4 h-4 text-[#007aff]" /> Blockchain Multi-Media Analysis
-                  </div>
-                  {hashing ? (
-                    <span className="flex items-center gap-1 text-[11px] text-[#007aff] font-mono">
-                      <Loader2 className="w-3.5 h-3.5 animate-spin" /> Analyzing Frame Signatures…
-                    </span>
-                  ) : isDuplicate ? (
-                    <span className="flex items-center gap-1 text-[10px] text-[#ff3b30] font-bold px-2 py-0.5 rounded-full bg-[#ff3b30]/15 border border-[#ff3b30]/30 font-mono">
-                      <AlertTriangle className="w-3 h-3" /> DUPLICATE REJECTED
-                    </span>
-                  ) : (
-                    <span className="flex items-center gap-1 text-[10px] text-[#34c759] font-bold px-2 py-0.5 rounded-full bg-[#34c759]/15 border border-[#34c759]/30 font-mono">
-                      <CheckCircle2 className="w-3 h-3" /> VERIFIED UNIQUE
-                    </span>
-                  )}
-                </div>
+              {/* Caption Input */}
+              <div>
+                <label className="text-xs font-bold text-[#111111] block mb-1.5">Title & Description</label>
+                <textarea
+                  value={caption}
+                  onChange={e => setCaption(e.target.value)}
+                  placeholder="Tell everyone what your pin is about…"
+                  rows={2}
+                  className="w-full p-3 rounded-2xl bg-[#F8F8F8] border border-[#EAEAEA] focus:bg-white focus:border-[#E60023] focus:ring-2 focus:ring-[#E60023]/20 text-xs text-[#111111] outline-none transition-all resize-none"
+                />
+              </div>
 
-                {/* SHA-256 Digest */}
-                <div className="space-y-1">
-                  <div className="flex items-center justify-between text-[11px] text-gray-400 font-mono">
-                    <span>Cryptographic SHA-256 Multihash:</span>
-                    <button onClick={copyHash} className="text-[#007aff] hover:underline flex items-center gap-0.5 text-[10px]">
-                      {copied ? <Check className="w-3 h-3 text-[#34c759]" /> : <Copy className="w-3 h-3" />}
-                      {copied ? 'Copied' : 'Copy'}
+              {/* Tamper-Proofing Status Banner */}
+              {hashing ? (
+                <div className="p-3.5 rounded-2xl bg-[#FFF8E6] border border-[#FFE2A4] flex items-center gap-2.5 text-xs text-[#8A6D3B]">
+                  <Loader2 className="w-4 h-4 animate-spin text-[#E60023]" />
+                  <span>Computing SHA-256 multihash and verifying global uniqueness…</span>
+                </div>
+              ) : isDuplicate ? (
+                <div className="p-4 rounded-2xl bg-[#FFF2F2] border border-[#FFB8B8] space-y-2">
+                  <div className="flex items-center gap-2 text-xs font-bold text-[#E60023]">
+                    <AlertTriangle className="w-4 h-4 flex-shrink-0" />
+                    <span>Tamper-Proof Security Alert: Duplicate Rejected</span>
+                  </div>
+                  <p className="text-xs text-[#991B1B] leading-relaxed">
+                    {dupError}
+                  </p>
+                  <p className="text-[11px] text-[#767676]">
+                    This media (or a cropped/trimmed variant) is already immutably anchored on Hyperledger Fabric. Duplicate re-uploads are disallowed.
+                  </p>
+                </div>
+              ) : (
+                <div className="p-3.5 rounded-2xl bg-[#F0FDF4] border border-[#BBF7D0] flex items-center justify-between text-xs text-[#166534]">
+                  <div className="flex items-center gap-2 font-semibold">
+                    <CheckCircle2 className="w-4 h-4 text-[#27ae60]" />
+                    <span>Cryptographically & perceptually unique! Ready for ledger minting.</span>
+                  </div>
+                  <span className="text-[10px] font-mono font-bold bg-white px-2 py-0.5 rounded-full border border-[#BBF7D0]">
+                    VERIFIED
+                  </span>
+                </div>
+              )}
+
+              {/* Fingerprint Details Card */}
+              {sha256 && (
+                <div className="p-3 rounded-2xl bg-[#F8F8F8] border border-[#EAEAEA] font-mono text-[11px] space-y-1.5 text-[#555555]">
+                  <div className="flex items-center justify-between">
+                    <span className="text-[#767676]">SHA-256 Digest:</span>
+                    <button onClick={copyHash} className="hover:text-[#111111] flex items-center gap-1 text-[10px]">
+                      {copied ? <Check className="w-3 h-3 text-[#27ae60]" /> : <Copy className="w-3 h-3" />}
+                      <span>{shortHash(sha256)}</span>
                     </button>
                   </div>
-                  <div className="font-mono text-[11px] p-2 bg-black/60 rounded-[12px] border border-white/10 break-all text-gray-300">
-                    {sha256 || 'Generating SHA-256 multihash…'}
-                  </div>
-                </div>
-
-                {/* Perceptual or Video Frame Fingerprint */}
-                {mediaType === 'video' ? (
-                  <div className="space-y-1">
-                    <div className="flex items-center justify-between text-[11px] text-gray-400 font-mono">
-                      <span className="flex items-center gap-1">
-                        <Video className="w-3 h-3 text-[#ff2d55]" /> Video Frame Hashes (Trim/Crop Resilient):
-                      </span>
-                      <span className="text-[10px] text-gray-400 font-mono">Temporal sequence</span>
+                  {pHash && (
+                    <div className="flex items-center justify-between">
+                      <span className="text-[#767676]">pHash (Perceptual):</span>
+                      <span className="text-[#111111] font-semibold">{shortHash(pHash)}</span>
                     </div>
-                    <div className="font-mono text-[11px] p-2 bg-black/60 rounded-[12px] border border-white/10 text-gray-300 truncate">
-                      {videoFingerprint || 'Extracting temporal video keyframe sequence…'}
+                  )}
+                  {videoFingerprint && (
+                    <div className="flex items-center justify-between">
+                      <span className="text-[#767676]">Video Temporal Sig:</span>
+                      <span className="text-[#E60023] font-semibold">Verified Frame Matrix</span>
                     </div>
-                  </div>
-                ) : (
-                  <div className="space-y-1">
-                    <div className="flex items-center justify-between text-[11px] text-gray-400 font-mono">
-                      <span className="flex items-center gap-1">
-                        <Eye className="w-3 h-3 text-[#007aff]" /> Image Perceptual Hash (pHash):
-                      </span>
-                      <span className="text-[10px] text-gray-400 font-mono">64-bit visual hash</span>
-                    </div>
-                    <div className="font-mono text-[11px] p-2 bg-black/60 rounded-[12px] border border-white/10 flex items-center justify-between text-gray-300">
-                      <span>{pHash ? `0x${pHash}` : 'Computing visual fingerprint…'}</span>
-                      {pHashReversed && (
-                        <span className="text-[9px] text-gray-500 font-mono">
-                          Reversed: {shortHash(pHashReversed, 4, 4)}
-                        </span>
-                      )}
-                    </div>
-                  </div>
-                )}
-
-                {/* ⚠ REQUIRED TAMPER-PROOF SECURITY ALERT BANNER */}
-                {isDuplicate && (
-                  <div className="p-4 rounded-[18px] bg-[#ff3b30]/15 border border-[#ff3b30]/50 text-[#ff3b30] space-y-2 security-alert-glow animate-fade-in">
-                    <div className="flex items-center gap-2 font-bold text-xs">
-                      <Lock className="w-4 h-4 flex-shrink-0" />
-                      <span>Tamper-Proof Blockchain Ledger Enforcement</span>
-                    </div>
-
-                    {/* Exact Required Lockout Message */}
-                    <p className="text-[12px] font-bold leading-relaxed text-white bg-black/50 p-3 rounded-[12px] border border-[#ff3b30]/40 font-sans">
-                      {dupError || 'Tamper-Proof Blockchain Security: This media file (or a cropped/trimmed variant) has already been registered on the ledger.'}
-                    </p>
-
-                    {dupDetails && (
-                      <div className="text-[10px] font-mono text-gray-300 space-y-1 pt-1.5 border-t border-[#ff3b30]/25">
-                        <div className="flex justify-between">
-                          <span className="text-gray-400">Match Classification:</span>
-                          <span className="font-bold text-[#ff3b30] uppercase">{dupDetails.matchType || 'Duplicate Sequence'}</span>
-                        </div>
-                        {dupDetails.distance !== undefined && (
-                          <div className="flex justify-between">
-                            <span className="text-gray-400">Bit Distance:</span>
-                            <span className="text-white">{dupDetails.distance} / 64 bits</span>
-                          </div>
-                        )}
-                        {dupDetails.similarity !== undefined && (
-                          <div className="flex justify-between">
-                            <span className="text-gray-400">Fingerprint Similarity:</span>
-                            <span className="text-[#ff3b30] font-bold">{(dupDetails.similarity * 100).toFixed(1)}%</span>
-                          </div>
-                        )}
-                        {dupDetails.existingPost && (
-                          <div className="flex justify-between">
-                            <span className="text-gray-400">Registered By:</span>
-                            <span className="text-white font-semibold">@{dupDetails.existingPost.authorUsername || dupDetails.existingPost.authorId}</span>
-                          </div>
-                        )}
-                      </div>
-                    )}
-                  </div>
-                )}
-              </div>
-
-              {/* Caption & Post */}
-              {!isDuplicate && (
-                <div className="space-y-3">
-                  <textarea
-                    rows={2}
-                    value={caption}
-                    onChange={e => setCaption(e.target.value)}
-                    placeholder="Write a caption… #Hyperledger #InstaLedger #Decentralized"
-                    className="w-full text-xs p-3 rounded-[16px] bg-[#121214] border border-white/10 text-white placeholder:text-gray-500 focus:outline-none focus:border-[#007aff] resize-none"
-                  />
-                  <button
-                    onClick={submit}
-                    className="w-full ios-btn-blue font-bold text-xs py-3 flex items-center justify-center gap-2 shadow-lg shadow-blue-500/20 active:scale-[0.98] transition-transform"
-                  >
-                    Commit Block to Ledger <ArrowRight className="w-4 h-4" />
-                  </button>
+                  )}
                 </div>
               )}
             </div>
           )}
 
-          {/* STAGE 2: 4-Stage Fabric Endorsement Animation */}
+          {/* STAGE 2: Mining Block Animation */}
           {stage === 2 && (
-            <div className="flex flex-col items-center py-12 text-center space-y-4">
-              <div className="w-16 h-16 rounded-full bg-[#007aff]/20 flex items-center justify-center text-[#007aff]">
-                <Loader2 className="w-10 h-10 animate-spin" />
+            <div className="py-12 flex flex-col items-center justify-center text-center space-y-4">
+              <div className="relative">
+                <div className="w-16 h-16 rounded-full bg-[#FFF0F2] flex items-center justify-center text-[#E60023]">
+                  <Loader2 className="w-8 h-8 animate-spin" />
+                </div>
               </div>
               <div>
-                <h4 className="text-base font-bold text-white">Fabric Consensus Endorsement</h4>
-                <p className="text-xs font-mono text-gray-400 max-w-sm mt-1 leading-relaxed">{stageMsg}</p>
+                <h4 className="text-base font-bold text-[#111111] mb-1">Committing Block to Hyperledger Fabric</h4>
+                <p className="text-xs text-[#767676] max-w-sm leading-relaxed">{stageMsg}</p>
               </div>
             </div>
           )}

@@ -1,257 +1,264 @@
-import React, { useState, useEffect } from 'react';
+import { useState } from 'react';
 import {
-  Grid,
-  Bookmark,
-  ShieldCheck,
-  CheckCircle2,
-  Heart,
-  MessageCircle,
-  UserPlus,
-  UserCheck,
-  Key,
-  Database
+  Grid, Bookmark, ShieldCheck, CheckCircle2, Heart,
+  MessageCircle, Lock, Trash2, Video, Play, ExternalLink
 } from 'lucide-react';
-import { api } from '../services/api';
+import { getVideoPosterFallback } from '../utils/thumbnail';
 
 export default function ProfileView({
-  profileUser,
+  user,
+  allUsers = [],
+  posts = [],
   currentUser,
+  onSwitchUser,
   onSelectPost,
-  onUserFollowUpdated,
-  isDark
+  onDeletePost
 }) {
-  const [posts, setPosts] = useState([]);
-  const [activeTab, setActiveTab] = useState('posts');
-  const [isFollowing, setIsFollowing] = useState(false);
-  const [followerCount, setFollowerCount] = useState(profileUser?.followerCount || 0);
-  const [loading, setLoading] = useState(true);
+  const [tab, setTab] = useState('grid');
+  const [switcher, setSwitcher] = useState(false);
 
-  const isSelf = profileUser?.id === currentUser?.id;
+  const displayUser = user || currentUser;
+  const userPosts = posts.filter(p => p.authorId === displayUser?.id);
+  const isSelf = currentUser && displayUser && currentUser.id === displayUser.id;
 
-  useEffect(() => {
-    if (!profileUser) return;
-    setFollowerCount(profileUser.followerCount || 0);
+  if (!displayUser) return (
+    <div className="flex items-center justify-center py-24 text-[#767676] text-xs">
+      Loading profile…
+    </div>
+  );
 
-    const loadUserData = async () => {
-      setLoading(true);
+  const handleDelete = async (e, postId) => {
+    e.stopPropagation();
+    if (confirm('Permanently delete this pin from Hyperledger Fabric ledger?')) {
       try {
-        // Fetch posts by author
-        const userPosts = await api.getPostsByAuthor(profileUser.id);
-        setPosts(userPosts);
-
-        // Check if current user is following this profile
-        if (!isSelf && currentUser) {
-          const followStatus = await api.checkFollowing(currentUser.id, profileUser.id);
-          setIsFollowing(followStatus.following);
-        }
+        await onDeletePost?.(postId);
       } catch (err) {
-        console.error('Failed to load user profile details:', err);
-      } finally {
-        setLoading(false);
+        alert('Failed to delete post: ' + err.message);
       }
-    };
-
-    loadUserData();
-  }, [profileUser, currentUser]);
-
-  const handleToggleFollow = async () => {
-    if (!currentUser || isSelf) return;
-
-    const willFollow = !isFollowing;
-    setIsFollowing(willFollow);
-    setFollowerCount(prev => (willFollow ? prev + 1 : Math.max(0, prev - 1)));
-
-    try {
-      if (willFollow) {
-        const res = await api.followUser(currentUser.id, profileUser.id);
-        setFollowerCount(res.targetFollowerCount);
-      } else {
-        const res = await api.unfollowUser(currentUser.id, profileUser.id);
-        setFollowerCount(res.targetFollowerCount);
-      }
-      if (onUserFollowUpdated) onUserFollowUpdated();
-    } catch (err) {
-      console.error('Follow toggle failed on ledger:', err);
-      // Revert optimistic update
-      setIsFollowing(!willFollow);
-      setFollowerCount(prev => (!willFollow ? prev + 1 : Math.max(0, prev - 1)));
     }
   };
 
-  if (!profileUser) return null;
-
   return (
-    <div className="w-full max-w-4xl mx-auto px-4 py-8">
-      {/* Profile Header */}
-      <div className="flex flex-col md:flex-row items-center md:items-start gap-8 mb-10 pb-8 border-b border-[#262626]/40">
-        {/* Avatar */}
-        <div className="w-24 h-24 md:w-36 md:h-36 rounded-full p-[3px] story-gradient flex-shrink-0">
-          <div className={`w-full h-full rounded-full p-1 ${isDark ? 'bg-black' : 'bg-white'}`}>
-            <img
-              src={profileUser.avatarUrl}
-              alt={profileUser.username}
-              className="w-full h-full rounded-full object-cover"
-            />
+    <div className="w-full max-w-4xl mx-auto pb-24 text-[#111111] select-none bg-white">
+      {/* ── Profile Top Bar / Switcher ── */}
+      <div className="flex items-center justify-between px-4 py-3 border-b border-[#EFEFEF] bg-white sticky top-0 z-20 shadow-[0_1px_2px_rgba(0,0,0,0.02)]">
+        <button
+          onClick={() => setSwitcher(s => !s)}
+          className="flex items-center gap-1.5 hover:bg-[#F0F0F0] px-3 py-1.5 rounded-full transition-colors"
+        >
+          <span className="font-extrabold text-base tracking-tight text-[#111111]">{displayUser.username}</span>
+          <CheckCircle2 className="w-4 h-4 text-[#E60023] fill-[#E60023]" />
+          <span className="text-xs text-[#767676]">▾</span>
+        </button>
+        <button
+          onClick={() => setSwitcher(s => !s)}
+          className="text-xs text-[#E60023] font-bold px-3 py-1.5 rounded-full hover:bg-[#FFF0F2] transition-colors"
+        >
+          Switch Identity
+        </button>
+      </div>
+
+      {/* ── Switcher Dropdown Modal ── */}
+      {switcher && (
+        <div className="mx-4 mt-2 p-3 rounded-2xl bg-white border border-[#EAEAEA] space-y-1.5 animate-fade-in shadow-xl">
+          <p className="text-[10px] font-bold text-[#767676] uppercase tracking-wider px-2 mb-1.5">
+            Switch Hyperledger Fabric Identity
+          </p>
+          {allUsers.map(u => (
+            <button
+              key={u.id}
+              onClick={() => { onSwitchUser?.(u); setSwitcher(false); }}
+              className={`w-full flex items-center justify-between p-2.5 rounded-xl transition-colors ${
+                u.id === currentUser?.id ? 'bg-[#FFF0F2] border border-[#FFDADA]' : 'hover:bg-[#F8F8F8]'
+              }`}
+            >
+              <div className="flex items-center gap-2.5">
+                <img src={u.avatarUrl} alt={u.username} className="w-8 h-8 rounded-full object-cover" />
+                <div className="text-left">
+                  <div className="text-xs font-bold text-[#111111] flex items-center gap-1">
+                    @{u.username}
+                    {u.id === currentUser?.id && <span className="text-[10px] text-[#E60023] font-normal">(Active)</span>}
+                  </div>
+                  <div className="text-[10px] text-[#767676]">{u.displayName}</div>
+                </div>
+              </div>
+              <span className="text-[10px] font-mono text-[#27ae60] font-bold">Org1MSP</span>
+            </button>
+          ))}
+        </div>
+      )}
+
+      {/* ── Pinterest Profile Header ── */}
+      <div className="px-4 pt-8 pb-6 flex flex-col items-center text-center space-y-4">
+        {/* Large Centered Avatar */}
+        <div className="w-28 h-28 rounded-full p-1 ring-2 ring-[#E60023]/20 shadow-md">
+          <img
+            src={displayUser.avatarUrl}
+            alt={displayUser.username}
+            className="w-full h-full rounded-full object-cover"
+          />
+        </div>
+
+        <div>
+          <h1 className="text-2xl font-extrabold text-[#111111] tracking-tight">{displayUser.displayName}</h1>
+          <div className="flex items-center justify-center gap-1.5 mt-1">
+            <span className="text-xs font-semibold text-[#767676] font-mono">@{displayUser.username}</span>
+            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-green-50 text-[10px] font-mono text-green-700 font-bold border border-green-200">
+              <ShieldCheck className="w-3 h-3 text-[#27ae60]" /> {displayUser.mspId || 'Org1MSP'}
+            </span>
+          </div>
+          {displayUser.bio && (
+            <p className="text-xs text-[#555555] max-w-md mx-auto mt-2 leading-relaxed">
+              {displayUser.bio}
+            </p>
+          )}
+        </div>
+
+        {/* Minimalist Stats Row */}
+        <div className="flex items-center gap-4 text-center">
+          <div className="px-4 py-2 rounded-2xl bg-[#F0F0F0]">
+            <span className="text-sm font-extrabold text-[#111111] block font-mono">{userPosts.length}</span>
+            <span className="text-[10px] text-[#767676] font-semibold uppercase tracking-wider">Pins</span>
+          </div>
+          <div className="px-4 py-2 rounded-2xl bg-[#F0F0F0]">
+            <span className="text-sm font-extrabold text-[#111111] block font-mono">{displayUser.followerCount ?? 3}</span>
+            <span className="text-[10px] text-[#767676] font-semibold uppercase tracking-wider">Followers</span>
+          </div>
+          <div className="px-4 py-2 rounded-2xl bg-[#F0F0F0]">
+            <span className="text-sm font-extrabold text-[#111111] block font-mono">{displayUser.followingCount ?? 2}</span>
+            <span className="text-[10px] text-[#767676] font-semibold uppercase tracking-wider">Following</span>
           </div>
         </div>
 
-        {/* Info & Stats */}
-        <div className="flex-1 text-center md:text-left">
-          {/* Top row: username & action buttons */}
-          <div className="flex flex-wrap items-center justify-center md:justify-start gap-3 mb-4">
-            <h2 className="text-xl font-bold tracking-tight">@{profileUser.username}</h2>
-            <CheckCircle2 className="w-5 h-5 text-brand-blue fill-brand-blue" />
-
-            <div className="flex items-center gap-2">
-              {isSelf ? (
-                <span className={`text-xs px-3 py-1.5 rounded-lg border font-semibold ${
-                  isDark ? 'border-[#333] bg-[#161616] text-gray-300' : 'border-gray-300 bg-gray-100 text-gray-700'
-                }`}>
-                  Current Identity
-                </span>
-              ) : (
-                <button
-                  onClick={handleToggleFollow}
-                  className={`text-xs font-bold px-5 py-1.5 rounded-xl flex items-center gap-1.5 transition-all shadow-md ${
-                    isFollowing
-                      ? isDark ? 'bg-[#262626] hover:bg-[#333] text-white' : 'bg-gray-200 hover:bg-gray-300 text-black'
-                      : 'bg-brand-blue hover:bg-brand-hover text-white shadow-blue-500/20'
-                  }`}
-                >
-                  {isFollowing ? (
-                    <>
-                      <UserCheck className="w-3.5 h-3.5" />
-                      <span>Following</span>
-                    </>
-                  ) : (
-                    <>
-                      <UserPlus className="w-3.5 h-3.5" />
-                      <span>Follow</span>
-                    </>
-                  )}
-                </button>
-              )}
-            </div>
-          </div>
-
-          {/* Stats row */}
-          <div className="flex items-center justify-center md:justify-start gap-8 mb-4 text-sm">
-            <div>
-              <span className="font-bold">{posts.length}</span>{' '}
-              <span className="text-gray-400">posts</span>
-            </div>
-            <div>
-              <span className="font-bold">{followerCount}</span>{' '}
-              <span className="text-gray-400">followers</span>
-            </div>
-            <div>
-              <span className="font-bold">{profileUser.followingCount || 0}</span>{' '}
-              <span className="text-gray-400">following</span>
-            </div>
-          </div>
-
-          {/* Bio section */}
-          <div>
-            <div className="font-bold text-sm mb-1">{profileUser.displayName}</div>
-            <p className="text-xs text-gray-300 max-w-md whitespace-pre-line leading-relaxed mb-3">
-              {profileUser.bio}
-            </p>
-
-            {/* Fabric MSP Certificate badge */}
-            <div className={`inline-flex items-center gap-2 px-3 py-1 rounded-full text-[10px] font-mono border ${
-              isDark ? 'bg-[#121212] border-[#262626] text-gray-400' : 'bg-gray-50 border-gray-200 text-gray-600'
-            }`}>
-              <ShieldCheck className="w-3.5 h-3.5 text-brand-blue" />
-              <span>Fabric ID: {profileUser.id}</span>
-              <span className="text-emerald-400 font-semibold">• Org1MSP Verified</span>
-            </div>
-          </div>
+        {/* Action Buttons */}
+        <div className="flex gap-2 pt-1">
+          <button
+            onClick={() => setSwitcher(true)}
+            className="px-5 py-2 rounded-full bg-[#F0F0F0] hover:bg-[#E2E2E2] text-xs font-bold text-[#111111] transition-all active:scale-95"
+          >
+            Switch Profile
+          </button>
+          <button
+            onClick={() => navigator.clipboard?.writeText(window.location.href)}
+            className="px-5 py-2 rounded-full bg-[#F0F0F0] hover:bg-[#E2E2E2] text-xs font-bold text-[#111111] transition-all active:scale-95"
+          >
+            Share Profile
+          </button>
         </div>
       </div>
 
-      {/* Tabs */}
-      <div className="flex justify-center border-t border-[#262626]/60 mb-6">
+      {/* ── Pinterest Board Tabs ── */}
+      <div className="flex justify-center border-b border-[#EFEFEF] mt-2 mb-6">
         <button
-          onClick={() => setActiveTab('posts')}
-          className={`flex items-center gap-2 py-3 px-6 text-xs font-bold uppercase tracking-widest border-t-2 -mt-[2px] transition-all ${
-            activeTab === 'posts'
-              ? 'border-white text-white'
-              : 'border-transparent text-gray-500 hover:text-gray-300'
+          onClick={() => setTab('grid')}
+          className={`px-6 py-3 font-bold text-sm border-b-2 transition-all flex items-center gap-2 ${
+            tab === 'grid'
+              ? 'border-[#111111] text-[#111111]'
+              : 'border-transparent text-[#767676] hover:text-[#111111]'
           }`}
         >
           <Grid className="w-4 h-4" />
-          <span>Posts ({posts.length})</span>
+          <span>Created Pins ({userPosts.length})</span>
         </button>
 
         <button
-          onClick={() => setActiveTab('ledger')}
-          className={`flex items-center gap-2 py-3 px-6 text-xs font-bold uppercase tracking-widest border-t-2 -mt-[2px] transition-all ${
-            activeTab === 'ledger'
-              ? 'border-white text-white'
-              : 'border-transparent text-gray-500 hover:text-gray-300'
+          onClick={() => setTab('saved')}
+          className={`px-6 py-3 font-bold text-sm border-b-2 transition-all flex items-center gap-2 ${
+            tab === 'saved'
+              ? 'border-[#111111] text-[#111111]'
+              : 'border-transparent text-[#767676] hover:text-[#111111]'
           }`}
         >
-          <Database className="w-4 h-4" />
-          <span>Ledger State</span>
+          <Bookmark className="w-4 h-4" />
+          <span>Saved to Ledger</span>
         </button>
       </div>
 
-      {/* Tab Content */}
-      {activeTab === 'posts' ? (
-        posts.length === 0 ? (
-          <div className="text-center py-16 text-gray-500">
-            <div className="w-16 h-16 rounded-full border border-gray-700 flex items-center justify-center mx-auto mb-3">
-              <Grid className="w-8 h-8 stroke-1" />
-            </div>
-            <h4 className="text-base font-semibold mb-1">No Posts Yet</h4>
-            <p className="text-xs">Any post minted by @{profileUser.username} will appear here.</p>
+      {/* ── Pinterest Masonry Grid of Pins ── */}
+      {tab === 'grid' ? (
+        userPosts.length === 0 ? (
+          <div className="py-20 text-center space-y-3">
+            <p className="text-xs text-[#767676]">No pins committed to Hyperledger Fabric by this creator yet.</p>
           </div>
         ) : (
-          <div className="grid grid-cols-3 gap-1 md:gap-4">
-            {posts.map((post) => (
-              <div
-                key={post.id}
-                onClick={() => onSelectPost(post)}
-                className="group relative aspect-square bg-[#121212] overflow-hidden cursor-pointer rounded-sm md:rounded-lg"
-              >
-                <img
-                  src={post.mediaUrl || `/api/ipfs/${post.contentHash}`}
-                  alt={post.caption}
-                  className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-                />
+          <div className="masonry-columns px-3 md:px-6">
+            {userPosts.map(post => {
+              const isVideo = post.mediaType === 'video' || /\.(mp4|webm|mov|m4v)$/i.test(post.mediaUrl || '');
+              const thumb = post.thumbnailUrl || (isVideo ? getVideoPosterFallback(post.caption, post.id) : post.mediaUrl);
 
-                {/* Hover overlay with Like and Comment count */}
-                <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-6 text-white font-bold text-sm">
-                  <div className="flex items-center gap-1.5">
-                    <Heart className="w-5 h-5 fill-white" />
-                    <span>{post.likeCount || 0}</span>
-                  </div>
-                  <div className="flex items-center gap-1.5">
-                    <MessageCircle className="w-5 h-5 fill-white" />
-                    <span>{post.commentCount || 0}</span>
+              return (
+                <div
+                  key={post.id}
+                  onClick={() => onSelectPost?.(post)}
+                  className="masonry-brick group cursor-pointer mb-4"
+                >
+                  <div className="bg-white rounded-[20px] border border-[#EFEFEF] overflow-hidden shadow-sm hover:shadow-xl transition-all duration-300">
+                    {/* Media Thumbnail */}
+                    <div className="relative aspect-[4/5] bg-[#F5F5F5] overflow-hidden">
+                      <img
+                        src={thumb}
+                        alt={post.caption || 'pin'}
+                        className={`w-full h-full object-cover group-hover:scale-105 transition-transform duration-500 f-${post.filterName?.toLowerCase() || 'normal'}`}
+                        loading="lazy"
+                      />
+
+                      {/* Video Indicator */}
+                      {isVideo && (
+                        <div className="absolute top-2.5 left-2.5 px-2 py-0.5 rounded-full bg-black/60 backdrop-blur-md text-white text-[10px] font-mono font-bold flex items-center gap-1 border border-white/20">
+                          <Play className="w-3 h-3 fill-white" /> VIDEO
+                        </div>
+                      )}
+
+                      {/* Block Height Pill */}
+                      <div className="absolute bottom-2.5 left-2.5 bg-white/90 backdrop-blur-md px-2 py-0.5 rounded-full text-[9px] font-mono font-bold text-[#111111] border border-black/5">
+                        #{post.blockNumber ?? '0'} Fabric
+                      </div>
+
+                      {/* Delete Button (Trash Icon) for owner */}
+                      {isSelf && (
+                        <button
+                          onClick={(e) => handleDelete(e, post.id)}
+                          className="absolute top-2.5 right-2.5 p-2 rounded-full bg-white/90 hover:bg-[#E60023] text-red-600 hover:text-white shadow-md transition-all active:scale-90"
+                          title="Delete post permanently from ledger"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      )}
+                    </div>
+
+                    {/* Pin Caption & Likes Footer */}
+                    <div className="p-3 space-y-1.5">
+                      {post.caption && (
+                        <p className="text-xs font-semibold text-[#111111] line-clamp-2 leading-snug">
+                          {post.caption}
+                        </p>
+                      )}
+
+                      <div className="flex items-center justify-between text-[11px] text-[#767676] pt-1">
+                        <span className="flex items-center gap-1 font-semibold">
+                          <Heart className={`w-3 h-3 ${post.likeCount > 0 ? 'fill-[#E60023] text-[#E60023]' : ''}`} />
+                          {post.likeCount || 0}
+                        </span>
+
+                        <span className="flex items-center gap-1 font-semibold">
+                          <MessageCircle className="w-3 h-3" />
+                          {post.commentCount || 0}
+                        </span>
+                      </div>
+                    </div>
                   </div>
                 </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         )
       ) : (
-        /* Ledger Raw State Inspector Tab */
-        <div className={`p-6 rounded-2xl border font-mono text-xs space-y-4 ${
-          isDark ? 'bg-[#141414] border-[#262626]' : 'bg-gray-50 border-gray-200'
-        }`}>
-          <div className="flex items-center justify-between border-b border-[#262626] pb-3">
-            <span className="text-brand-blue font-bold">World State Key: Profile~{profileUser.id}</span>
-            <span className="text-emerald-400">STATE_LEVELDB_OK</span>
-          </div>
-
-          <pre className="p-4 rounded-xl bg-black/60 overflow-x-auto text-[11px] text-gray-300">
-            {JSON.stringify(profileUser, null, 2)}
-          </pre>
-
-          <div className="text-[11px] text-gray-400">
-            * This asset is validated across validating peers on channel <span className="text-brand-blue">mychannel</span> and verified by Org1MSP.
-          </div>
+        <div className="p-12 text-center space-y-3 bg-[#F8F8F8] rounded-2xl mx-4 border border-[#EAEAEA]">
+          <Lock className="w-8 h-8 text-[#E60023] mx-auto" />
+          <p className="font-bold text-sm text-[#111111]">Saved to Ledger</p>
+          <p className="text-xs text-[#767676] leading-relaxed max-w-sm mx-auto">
+            Saved pins are indexed immutably on the Hyperledger Fabric ledger under your identity composite key.
+          </p>
         </div>
       )}
     </div>

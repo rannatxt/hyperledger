@@ -45,16 +45,26 @@ router.get('/:cid', (req, res) => {
     const { cid } = req.params;
     const fileInfo = ipfsService.getFile(cid);
 
-    if (!fileInfo || !fs.existsSync(fileInfo.filePath)) {
+    if (!fileInfo) {
       return res.status(404).json({ error: `Content hash ${cid} not found on IPFS node` });
     }
 
-    res.setHeader('Content-Type', fileInfo.mimeType || 'application/octet-stream');
+    const mime = fileInfo.mimeType || 'application/octet-stream';
+    res.setHeader('Content-Type', mime);
     res.setHeader('Cache-Control', 'public, max-age=31536000, immutable'); // IPFS content is immutable
     res.setHeader('X-IPFS-CID', cid);
 
-    const stream = fs.createReadStream(fileInfo.filePath);
-    stream.pipe(res);
+    if (fileInfo.buffer) {
+      res.setHeader('Content-Length', fileInfo.buffer.length);
+      return res.end(fileInfo.buffer);
+    }
+
+    if (fileInfo.filePath && fs.existsSync(fileInfo.filePath)) {
+      const stream = fs.createReadStream(fileInfo.filePath);
+      return stream.pipe(res);
+    }
+
+    return res.status(404).json({ error: `Content hash ${cid} not available on disk or cloud buffer` });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }

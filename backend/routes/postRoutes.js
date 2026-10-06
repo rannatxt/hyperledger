@@ -59,6 +59,10 @@ router.post('/', upload.single('media'), async (req, res) => {
 
     const postId = 'post_' + crypto.randomBytes(8).toString('hex');
 
+    if (mediaType === 'video' && !thumbnailUrl) {
+      thumbnailUrl = 'https://images.unsplash.com/photo-1518770660439-4636190af475?w=800&auto=format&fit=crop&q=80';
+    }
+
     // Submit transaction to Hyperledger Fabric
     const result = await fabricClient.submitTransaction(
       'createPost',
@@ -207,14 +211,17 @@ router.get('/:id', async (req, res) => {
   }
 });
 
-// Get posts by author
-router.get('/author/:authorId', async (req, res) => {
+// Delete post by ID (validates author ownership on Fabric chaincode)
+router.delete('/:id', async (req, res) => {
   try {
-    const raw = await fabricClient.evaluateTransaction('getPostsByAuthor', req.params.authorId);
-    const posts = JSON.parse(raw);
-    res.json(posts);
+    const postId = req.params.id;
+    const authorId = req.body?.authorId || req.query?.authorId || '';
+    const result = await fabricClient.submitTransaction('deletePost', postId, authorId);
+    res.json(JSON.parse(result));
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    console.error('Error deleting post on ledger:', err);
+    const isUnauthorized = err.message && err.message.includes('Unauthorized');
+    res.status(isUnauthorized ? 403 : 400).json({ error: err.message });
   }
 });
 

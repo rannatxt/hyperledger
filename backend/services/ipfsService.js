@@ -182,39 +182,29 @@ class IpfsService {
   }
 
   /**
-   * Upload binary buffer to simulated IPFS
+   * Upload binary buffer to simulated IPFS backed by Cloud Storage
    */
   async uploadBuffer(buffer, originalName = 'media.bin', mimeType = 'application/octet-stream') {
-    this.ensureUploadDir();
-
-    const cid = generateCidV1(buffer);
-    const ext = path.extname(originalName) || (mimeType.includes('png') ? '.png' : mimeType.includes('video') ? '.mp4' : '.jpg');
-    const filename = `${cid}${ext}`;
-    const filePath = path.join(this.uploadDir, filename);
-
-    // Save binary data to storage
-    fs.writeFileSync(filePath, buffer);
-
-    const record = {
-      cid,
-      filename,
-      originalName,
-      mimeType,
-      size: buffer.length,
-      timestamp: new Date().toISOString(),
-      pinned: true
-    };
-
-    this.manifest.set(cid, record);
-    this.saveManifest();
-
+    const cloudStorage = require('./cloudStorage');
+    const record = await cloudStorage.upload(buffer, originalName, mimeType);
+    this.manifest.set(record.cid, record);
     return record;
   }
 
   /**
-   * Get file metadata and file path by CID
+   * Get file metadata, buffer, and file path by CID
    */
   getFile(cid) {
+    const cloudStorage = require('./cloudStorage');
+    const cloudEntry = cloudStorage.get(cid);
+    if (cloudEntry) {
+      return {
+        ...(cloudEntry.meta || {}),
+        filePath: cloudEntry.filePath,
+        buffer: cloudEntry.buffer
+      };
+    }
+
     const item = this.manifest.get(cid);
     if (!item) {
       return null;
@@ -222,7 +212,7 @@ class IpfsService {
 
     const filePath = path.join(this.uploadDir, item.filename);
     if (!fs.existsSync(filePath)) {
-      return null;
+      return item;
     }
 
     return {
@@ -235,24 +225,16 @@ class IpfsService {
    * Retrieve all pinned CIDs
    */
   getAllCids() {
-    return Array.from(this.manifest.values());
+    const cloudStorage = require('./cloudStorage');
+    return cloudStorage.getAll();
   }
 
   /**
    * Return IPFS storage statistics
    */
   getStats() {
-    let totalSize = 0;
-    for (const item of this.manifest.values()) {
-      totalSize += item.size || 0;
-    }
-    return {
-      status: 'ONLINE',
-      protocol: 'IPFS / CIDv1',
-      pinnedCount: this.manifest.size,
-      totalBytes: totalSize,
-      storagePath: this.uploadDir
-    };
+    const cloudStorage = require('./cloudStorage');
+    return cloudStorage.getStats();
   }
 }
 

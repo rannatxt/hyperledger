@@ -1,7 +1,7 @@
 import React from 'react';
 import {
   ShieldCheck, RefreshCw, Layers, Monitor,
-  Maximize2, Minimize2, Circle, CheckCircle2
+  Search, CheckCircle2
 } from 'lucide-react';
 
 export default function DesktopTitleBar({
@@ -12,89 +12,107 @@ export default function DesktopTitleBar({
   loadingFeed,
   viewMode,
   setViewMode,
-  onOpenLedger
+  onOpenLedger,
+  searchQuery,
+  setSearchQuery,
+  onOpenUpload
 }) {
   return (
-    <header className="h-11 w-full bg-[#161618]/90 border-b border-white/[0.08] backdrop-blur-xl flex items-center justify-between px-4 select-none z-30 flex-shrink-0">
-      {/* ── macOS Traffic Lights ── */}
-      <div className="flex items-center gap-2 group">
-        <button
-          title="Close / Reset Window"
-          onClick={() => window.location.reload()}
-          className="w-3 h-3 rounded-full bg-[#ff5f56] hover:brightness-110 active:brightness-90 flex items-center justify-center text-[8px] text-black font-bold opacity-90 transition-all shadow-sm"
-        >
-          <span className="opacity-0 group-hover:opacity-100 transition-opacity">✕</span>
-        </button>
-        <button
-          title={viewMode === 'desktop' ? 'Switch to Compact iPad View' : 'Switch to Desktop Split View'}
-          onClick={() => setViewMode(viewMode === 'desktop' ? 'compact' : 'desktop')}
-          className="w-3 h-3 rounded-full bg-[#ffbd2e] hover:brightness-110 active:brightness-90 flex items-center justify-center text-[8px] text-black font-bold opacity-90 transition-all shadow-sm"
-        >
-          <span className="opacity-0 group-hover:opacity-100 transition-opacity">−</span>
-        </button>
-        <button
-          title="Toggle Fullscreen / Maximize"
-          onClick={() => setViewMode(viewMode === 'desktop' ? 'compact' : 'desktop')}
-          className="w-3 h-3 rounded-full bg-[#27c93f] hover:brightness-110 active:brightness-90 flex items-center justify-center text-[8px] text-black font-bold opacity-90 transition-all shadow-sm"
-        >
-          <span className="opacity-0 group-hover:opacity-100 transition-opacity">+</span>
-        </button>
+    <header className="h-16 w-full bg-white border-b border-[#EFEFEF] flex items-center justify-between px-4 md:px-6 select-none z-30 flex-shrink-0 shadow-[0_1px_4px_rgba(0,0,0,0.03)]">
+      {/* ── Left: Brand & Window Indicator ── */}
+      <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2">
+          {/* Pinterest-style Red Logo Mark */}
+          <div
+            onClick={onOpenUpload}
+            className="w-10 h-10 rounded-full bg-[#E60023] hover:bg-[#AD081B] text-white flex items-center justify-center font-black text-xl shadow-md cursor-pointer transition-transform active:scale-95"
+            title="Create New Pin"
+          >
+            <span>⛓</span>
+          </div>
 
-        <span className="ml-3 text-[11px] font-semibold text-gray-400 hidden sm:inline-flex items-center gap-1.5 font-sans">
-          <span className="w-1.5 h-1.5 rounded-full bg-[#34c759] animate-pulse" />
-          Hyperledger Fabric v2.5
-        </span>
-      </div>
-
-      {/* ── Center Window Title & Channel Badge ── */}
-      <div className="flex items-center gap-2 cursor-pointer" onClick={onOpenLedger}>
-        <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-white/[0.05] border border-white/[0.08] hover:bg-white/[0.08] transition-colors">
-          <span className="text-xs font-bold text-white tracking-tight font-serif">Insta<span className="text-[#007aff]">Ledger</span></span>
-          <span className="text-gray-500 text-[10px]">·</span>
-          <span className="text-[11px] font-mono font-medium text-gray-300">channel: <strong className="text-white">{channelName}</strong></span>
-          <span className="text-[9px] px-1.5 py-0.2 rounded bg-[#007aff]/20 text-[#007aff] font-mono font-semibold">Peer0.Org1MSP</span>
+          <div className="flex flex-col cursor-pointer" onClick={() => window.location.reload()}>
+            <span className="text-base font-extrabold text-[#111111] tracking-tight leading-tight">
+              Insta<span className="text-[#E60023]">Ledger</span>
+            </span>
+            <span className="text-[10px] text-[#767676] font-mono flex items-center gap-1 font-semibold">
+              <span className="w-1.5 h-1.5 rounded-full bg-[#27ae60] animate-pulse" />
+              Fabric v2.5 · {channelName}
+            </span>
+          </div>
         </div>
       </div>
 
-      {/* ── Right Window Actions ── */}
+      {/* ── Center: Pinterest Search Bar Pill ── */}
+      <div className="hidden sm:flex flex-1 max-w-xl mx-4 lg:mx-8">
+        <div className="w-full flex items-center gap-2.5 px-4 py-2.5 rounded-full bg-[#F0F0F0] hover:bg-[#EAEAEA] focus-within:bg-white focus-within:ring-2 focus-within:ring-[#E60023]/25 focus-within:border-[#E60023] border border-transparent transition-all">
+          <Search className="w-4 h-4 text-[#767676] flex-shrink-0" />
+          <input
+            type="text"
+            value={searchQuery || ''}
+            onChange={(e) => setSearchQuery?.(e.target.value)}
+            placeholder="Search pins, creators, blockchain CIDs, or perceptual hashes…"
+            className="w-full bg-transparent border-none outline-none text-xs text-[#111111] placeholder:text-[#767676]"
+          />
+        </div>
+      </div>
+
+      {/* ── Right: Channel, Actions & Profile ── */}
       <div className="flex items-center gap-2.5">
-        {/* Layout Mode Toggle */}
+        {/* Blockchain Inspector Pill */}
         <button
-          onClick={() => setViewMode(viewMode === 'desktop' ? 'compact' : 'desktop')}
-          className="hidden md:flex items-center gap-1 px-2.5 py-1 rounded-lg bg-white/[0.05] hover:bg-white/[0.1] text-gray-300 text-[11px] font-medium border border-white/[0.08] transition-colors"
-          title="Switch view layout"
+          onClick={onOpenLedger}
+          className="hidden md:flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-[#F0F0F0] hover:bg-[#E2E2E2] text-xs font-semibold text-[#111111] transition-colors"
+          title="Inspect Hyperledger Fabric Ledger"
         >
-          {viewMode === 'desktop' ? (
-            <>
-              <Monitor className="w-3.5 h-3.5 text-[#007aff]" />
-              <span>Desktop Split</span>
-            </>
-          ) : (
-            <>
-              <Layers className="w-3.5 h-3.5 text-[#007aff]" />
-              <span>iPad View</span>
-            </>
-          )}
+          <ShieldCheck className="w-3.5 h-3.5 text-[#E60023]" />
+          <span>Ledger</span>
+          <span className="text-[10px] font-mono px-1.5 py-0.2 rounded-full bg-white text-[#767676] font-bold border border-black/5">
+            #{blockHeight}
+          </span>
         </button>
 
         {/* Sync Button */}
         <button
           onClick={onRefresh}
-          className="flex items-center gap-1 px-2.5 py-1 rounded-lg bg-[#007aff]/15 hover:bg-[#007aff]/25 text-[#007aff] text-[11px] font-semibold transition-colors border border-[#007aff]/30"
+          className="flex items-center gap-1 px-3 py-1.5 rounded-full bg-[#F0F0F0] hover:bg-[#E2E2E2] text-[#111111] text-xs font-semibold transition-colors"
+          title="Synchronize ledger state"
         >
-          <RefreshCw className={`w-3 h-3 ${loadingFeed ? 'animate-spin' : ''}`} />
-          <span>Sync</span>
+          <RefreshCw className={`w-3.5 h-3.5 ${loadingFeed ? 'animate-spin text-[#E60023]' : 'text-[#767676]'}`} />
+          <span className="hidden sm:inline">Sync</span>
         </button>
 
-        {/* Active MSP Identity Pill */}
+        {/* Layout Toggle (Desktop vs Compact) */}
+        <button
+          onClick={() => setViewMode(viewMode === 'desktop' ? 'compact' : 'desktop')}
+          className="hidden lg:flex items-center gap-1 px-3 py-1.5 rounded-full bg-[#F0F0F0] hover:bg-[#E2E2E2] text-[#111111] text-xs font-semibold transition-colors"
+          title="Toggle view mode"
+        >
+          {viewMode === 'desktop' ? (
+            <>
+              <Monitor className="w-3.5 h-3.5 text-[#E60023]" />
+              <span>Full Masonry</span>
+            </>
+          ) : (
+            <>
+              <Layers className="w-3.5 h-3.5 text-[#E60023]" />
+              <span>Compact View</span>
+            </>
+          )}
+        </button>
+
+        {/* Active User Avatar Pill */}
         {currentUser && (
-          <div className="hidden lg:flex items-center gap-1.5 pl-2 border-l border-white/[0.1]">
+          <div className="flex items-center gap-2 pl-2 border-l border-[#EFEFEF]">
             <img
               src={currentUser.avatarUrl}
               alt={currentUser.username}
-              className="w-5 h-5 rounded-full object-cover ring-1 ring-[#007aff]/40"
+              className="w-8 h-8 rounded-full object-cover ring-2 ring-[#E60023]/20"
             />
-            <span className="text-[11px] font-semibold text-gray-200">@{currentUser.username}</span>
+            <div className="hidden xl:flex flex-col text-left">
+              <span className="text-xs font-bold text-[#111111] leading-none">@{currentUser.username}</span>
+              <span className="text-[10px] text-[#27ae60] font-mono font-semibold">Org1MSP</span>
+            </div>
           </div>
         )}
       </div>

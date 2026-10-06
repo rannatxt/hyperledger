@@ -13,27 +13,36 @@
     "filename": "bafybeigdyrzt5sfp7udm7hu76uh7y26nf3efuylqabf3oclgtqy55fbzdi.svg",
     "originalName": "genesis_fabric_block.svg",
     "mimeType": "image/svg+xml",
-    "size": 1438,
+    "size": 1446,
     "timestamp": "2026-09-01T00:00:00.000Z",
-    "pinned": true
+    "pinned": true,
+    "cloudUrl": "/api/ipfs/bafybeigdyrzt5sfp7udm7hu76uh7y26nf3efuylqabf3oclgtqy55fbzdi",
+    "dataUrl": "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI4MDAiIGhlaWdodD0iODAwIiB2aWV3Qm94PSIwIDAgODAwIDgwMCI+CiAgICAgICAgICA8ZGVmcz4KICAgICAgICAgICAgPGxpbmVhckdyYWRpZW50IGlkPSJnMSIgeDE9IjAlIiB5MT0iMCUiIHgyPSIxMDAlIiB5Mj0iMTAwJSI+CiAgICAgICAgICAgICAgPHN0b3Agb2Zmc2V0PSIwJSIgc3RvcC1jb2xvcj0iIzBmMjAyNyIgLz4KICAgICAgICAgICAgICA8c3RvcCBvZmZzZXQ9IjUwJSIgc3RvcC1jb2xvcj0iIzIwM2E0MyIgLz4KICAgICAgICAgICAgICA8c3RvcCBvZmZzZXQ9IjEwMCUiIHN0b3AtY29sb3I9IiMyYzUzNjQiIC8+CiAgICAgICAgICAgIDwvbGluZWFyR3JhZGllbnQ+CiAgICAgICAgICAgIDxsaW5lYXJHcmFkaWVudCBpZD0iZ2xvdyIgeDE9IjAlIiB5MT0iMCUiIHgyPSIxMDAlIiB5Mj0iMTAwJSI+CiAgICAgICAgICAgICAgPHN0b3Agb2Zmc2V0PSIwJSIgc3RvcC1jb2xvcj0iI0U2MDAyMyIgLz4KICAgICAgICAgICAgICA8c3RvcCBvZmZzZXQ9IjEwMCUiIHN0b3AtY29sb3I9IiNmZjc2NzUiIC8+CiAgICAgICAgICAgIDwvbGluZWFyR3JhZGllbnQ+CiAgICAgICAgICA8L2RlZnM+CiAgICAgICAgICA8cmVjdCB3aWR0aD0iODAwIiBoZWlnaHQ9IjgwMCIgZmlsbD0idXJsKCNnMSkiIHJ4PSIzMiIgLz4KICAgICAgICAgIDxjaXJjbGUgY3g9IjQwMCIgY3k9IjQwMCIgcj0iMjIwIiBmaWxsPSJub25lIiBzdHJva2U9InVybCgjZ2xvdykiIHN0cm9rZS13aWR0aD0iNCIgc3Ryb2tlLWRhc2hhcnJheT0iMTIgOCIgb3BhY2l0eT0iMC42Ii8+CiAgICAgICAgICA8Y2lyY2xlIGN4PSI0MDAiIGN5PSI0MDAiIHI9IjE0MCIgZmlsbD0ibm9uZSIgc3Ryb2tlPSIjZmZmZmZmIiBzdHJva2Utd2lkdGg9IjIiIG9wYWNpdHk9IjAuMyIvPgogICAgICAgICAgPHRleHQgeD0iNDAwIiB5PSIzODAiIGZpbGw9IiNmZmZmZmYiIGZvbnQtc2l6ZT0iMzgiIGZvbnQtZmFtaWx5PSItYXBwbGUtc3lzdGVtLCBCbGlua01hY1N5c3RlbUZvbnQsIHNhbnMtc2VyaWYiIGZvbnQtd2VpZ2h0PSJib2xkIiB0ZXh0LWFuY2hvcj0ibWlkZGxlIj5IWVBFUkxFREdFUjwvdGV4dD4KICAgICAgICAgIDx0ZXh0IHg9IjQwMCIgeT0iNDMwIiBmaWxsPSIjRTYwMDIzIiBmb250LXNpemU9IjI4IiBmb250LWZhbWlseT0iLWFwcGxlLXN5c3RlbSwgQmxpbmtNYWNTeXN0ZW1Gb250LCBzYW5zLXNlcmlmIiBmb250LXdlaWdodD0iNjAwIiB0ZXh0LWFuY2hvcj0ibWlkZGxlIj5GQUJSSUMgR0VORVNJUzwvdGV4dD4KICAgICAgICAgIDx0ZXh0IHg9IjQwMCIgeT0iNDcwIiBmaWxsPSIjODg4ODg4IiBmb250LXNpemU9IjE2IiBmb250LWZhbWlseT0ibW9ub3NwYWNlIiB0ZXh0LWFuY2hvcj0ibWlkZGxlIj5DaGFubmVsOiBteWNoYW5uZWwgwrcgQmxvY2sgIzA8L3RleHQ+CiAgICAgICAgPC9zdmc+",
+    "storageProvider": "cloud-mapping"
   },
   "bafybeihdwdcefgh4dqkjv67uzcmw7ojee6xedzdetojuzjevtenxquvyku": {
     "cid": "bafybeihdwdcefgh4dqkjv67uzcmw7ojee6xedzdetojuzjevtenxquvyku",
     "filename": "bafybeihdwdcefgh4dqkjv67uzcmw7ojee6xedzdetojuzjevtenxquvyku.svg",
     "originalName": "decentralized_identity.svg",
     "mimeType": "image/svg+xml",
-    "size": 1285,
+    "size": 1293,
     "timestamp": "2026-09-01T00:00:00.000Z",
-    "pinned": true
+    "pinned": true,
+    "cloudUrl": "/api/ipfs/bafybeihdwdcefgh4dqkjv67uzcmw7ojee6xedzdetojuzjevtenxquvyku",
+    "dataUrl": "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI4MDAiIGhlaWdodD0iODAwIiB2aWV3Qm94PSIwIDAgODAwIDgwMCI+CiAgICAgICAgICA8ZGVmcz4KICAgICAgICAgICAgPGxpbmVhckdyYWRpZW50IGlkPSJnMiIgeDE9IjAlIiB5MT0iMCUiIHgyPSIxMDAlIiB5Mj0iMTAwJSI+CiAgICAgICAgICAgICAgPHN0b3Agb2Zmc2V0PSIwJSIgc3RvcC1jb2xvcj0iIzE0MWUzMCIgLz4KICAgICAgICAgICAgICA8c3RvcCBvZmZzZXQ9IjEwMCUiIHN0b3AtY29sb3I9IiMyNDNiNTUiIC8+CiAgICAgICAgICAgIDwvbGluZWFyR3JhZGllbnQ+CiAgICAgICAgICAgIDxsaW5lYXJHcmFkaWVudCBpZD0iZ3BpbmsiIHgxPSIwJSIgeTE9IjAlIiB4Mj0iMTAwJSIgeTI9IjEwMCUiPgogICAgICAgICAgICAgIDxzdG9wIG9mZnNldD0iMCUiIHN0b3AtY29sb3I9IiNFNjAwMjMiIC8+CiAgICAgICAgICAgICAgPHN0b3Agb2Zmc2V0PSIxMDAlIiBzdG9wLWNvbG9yPSIjZmY3Njc1IiAvPgogICAgICAgICAgICA8L2xpbmVhckdyYWRpZW50PgogICAgICAgICAgPC9kZWZzPgogICAgICAgICAgPHJlY3Qgd2lkdGg9IjgwMCIgaGVpZ2h0PSI4MDAiIGZpbGw9InVybCgjZzIpIiByeD0iMzIiIC8+CiAgICAgICAgICA8cG9seWdvbiBwb2ludHM9IjQwMCwyMDAgNTUwLDMwMCA1NTAsNTAwIDQwMCw2MDAgMjUwLDUwMCAyNTAsMzAwIiBmaWxsPSJub25lIiBzdHJva2U9InVybCgjZ3BpbmspIiBzdHJva2Utd2lkdGg9IjQiLz4KICAgICAgICAgIDx0ZXh0IHg9IjQwMCIgeT0iMzkwIiBmaWxsPSIjZmZmZmZmIiBmb250LXNpemU9IjM0IiBmb250LWZhbWlseT0iLWFwcGxlLXN5c3RlbSwgQmxpbmtNYWNTeXN0ZW1Gb250LCBzYW5zLXNlcmlmIiBmb250LXdlaWdodD0iYm9sZCIgdGV4dC1hbmNob3I9Im1pZGRsZSI+SU1NVVRBQkxFIElERU5USVRZPC90ZXh0PgogICAgICAgICAgPHRleHQgeD0iNDAwIiB5PSI0MzUiIGZpbGw9IiNFNjAwMjMiIGZvbnQtc2l6ZT0iMjAiIGZvbnQtZmFtaWx5PSItYXBwbGUtc3lzdGVtLCBCbGlua01hY1N5c3RlbUZvbnQsIHNhbnMtc2VyaWYiIGZvbnQtd2VpZ2h0PSI1MDAiIHRleHQtYW5jaG9yPSJtaWRkbGUiPk9yZzFNU1AgVmVyaWZpZWQ8L3RleHQ+CiAgICAgICAgICA8dGV4dCB4PSI0MDAiIHk9IjQ3NSIgZmlsbD0iI2EwYTBhMCIgZm9udC1zaXplPSIxNCIgZm9udC1mYW1pbHk9Im1vbm9zcGFjZSIgdGV4dC1hbmNob3I9Im1pZGRsZSI+Q29tcG9zaXRlIEtleTogRm9sbG93fmVsZW5hfnNhdG9zaGk8L3RleHQ+CiAgICAgICAgPC9zdmc+",
+    "storageProvider": "cloud-mapping"
   },
   "bafybeibml5fanx2qipldt7n76l7l2y77jygz7z3y6y5z4k7p4w6y4i5v5y": {
     "cid": "bafybeibml5fanx2qipldt7n76l7l2y77jygz7z3y6y5z4k7p4w6y4i5v5y",
     "filename": "bafybeibml5fanx2qipldt7n76l7l2y77jygz7z3y6y5z4k7p4w6y4i5v5y.svg",
     "originalName": "generative_ipfs_asset.svg",
     "mimeType": "image/svg+xml",
-    "size": 1302,
+    "size": 1310,
     "timestamp": "2026-09-01T00:00:00.000Z",
-    "pinned": true
+    "pinned": true,
+    "cloudUrl": "/api/ipfs/bafybeibml5fanx2qipldt7n76l7l2y77jygz7z3y6y5z4k7p4w6y4i5v5y",
+    "dataUrl": "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI4MDAiIGhlaWdodD0iODAwIiB2aWV3Qm94PSIwIDAgODAwIDgwMCI+CiAgICAgICAgICA8ZGVmcz4KICAgICAgICAgICAgPGxpbmVhckdyYWRpZW50IGlkPSJnMyIgeDE9IjAlIiB5MT0iMCUiIHgyPSIxMDAlIiB5Mj0iMTAwJSI+CiAgICAgICAgICAgICAgPHN0b3Agb2Zmc2V0PSIwJSIgc3RvcC1jb2xvcj0iIzA5MGEwZiIgLz4KICAgICAgICAgICAgICA8c3RvcCBvZmZzZXQ9IjEwMCUiIHN0b3AtY29sb3I9IiMxYjI3MzUiIC8+CiAgICAgICAgICAgIDwvbGluZWFyR3JhZGllbnQ+CiAgICAgICAgICAgIDxsaW5lYXJHcmFkaWVudCBpZD0iZ3B1cnBsZSIgeDE9IjAlIiB5MT0iMCUiIHgyPSIxMDAlIiB5Mj0iMTAwJSI+CiAgICAgICAgICAgICAgPHN0b3Agb2Zmc2V0PSIwJSIgc3RvcC1jb2xvcj0iI0U2MDAyMyIgLz4KICAgICAgICAgICAgICA8c3RvcCBvZmZzZXQ9IjUwJSIgc3RvcC1jb2xvcj0iI2U5NDA1NyIgLz4KICAgICAgICAgICAgICA8c3RvcCBvZmZzZXQ9IjEwMCUiIHN0b3AtY29sb3I9IiNmMjcxMjEiIC8+CiAgICAgICAgICAgIDwvbGluZWFyR3JhZGllbnQ+CiAgICAgICAgICA8L2RlZnM+CiAgICAgICAgICA8cmVjdCB3aWR0aD0iODAwIiBoZWlnaHQ9IjgwMCIgZmlsbD0idXJsKCNnMykiIHJ4PSIzMiIgLz4KICAgICAgICAgIDxjaXJjbGUgY3g9IjQwMCIgY3k9IjQwMCIgcj0iMTgwIiBmaWxsPSJub25lIiBzdHJva2U9InVybCgjZ3B1cnBsZSkiIHN0cm9rZS13aWR0aD0iOCIvPgogICAgICAgICAgPHRleHQgeD0iNDAwIiB5PSIzODUiIGZpbGw9IiNmZmZmZmYiIGZvbnQtc2l6ZT0iMzQiIGZvbnQtZmFtaWx5PSItYXBwbGUtc3lzdGVtLCBCbGlua01hY1N5c3RlbUZvbnQsIHNhbnMtc2VyaWYiIGZvbnQtd2VpZ2h0PSJib2xkIiB0ZXh0LWFuY2hvcj0ibWlkZGxlIj5JUEZTIFBJTk5FRCBBU1NFVDwvdGV4dD4KICAgICAgICAgIDx0ZXh0IHg9IjQwMCIgeT0iNDMwIiBmaWxsPSIjRTYwMDIzIiBmb250LXNpemU9IjIyIiBmb250LWZhbWlseT0iLWFwcGxlLXN5c3RlbSwgQmxpbmtNYWNTeXN0ZW1Gb250LCBzYW5zLXNlcmlmIiBmb250LXdlaWdodD0iNjAwIiB0ZXh0LWFuY2hvcj0ibWlkZGxlIj5Db250ZW50IEFkZHJlc3NlZDwvdGV4dD4KICAgICAgICAgIDx0ZXh0IHg9IjQwMCIgeT0iNDcwIiBmaWxsPSIjODg4ODg4IiBmb250LXNpemU9IjE0IiBmb250LWZhbWlseT0ibW9ub3NwYWNlIiB0ZXh0LWFuY2hvcj0ibWlkZGxlIj5DSUR2MSBTSEEtMjU2IE11bHRpaGFzaDwvdGV4dD4KICAgICAgICA8L3N2Zz4=",
+    "storageProvider": "cloud-mapping"
   },
   "bafkafkreicz5dsud5nl3btgk53dpudphwtlvdznr6hbayc2kykbhbugnhodha": {
     "cid": "bafkafkreicz5dsud5nl3btgk53dpudphwtlvdznr6hbayc2kykbhbugnhodha",
@@ -86,7 +95,7 @@
     "originalName": "Porsche 911 Carrera parked at side of road with palm trees behind.jfif",
     "mimeType": "image/jpeg",
     "size": 1656145,
-    "timestamp": "2026-09-28T13:53:37.842Z",
+    "timestamp": "2026-10-06T07:54:06.657Z",
     "pinned": true
   },
   "bafkafkreifv2utxk7lgfpbcacdtcpnntgbqqvj42wxdtqjh2scdaqiapqdhzq": {
@@ -140,7 +149,46 @@
     "originalName": "images (1).png",
     "mimeType": "image/png",
     "size": 5090,
-    "timestamp": "2026-10-06T06:25:55.846Z",
+    "timestamp": "2026-10-06T07:14:32.133Z",
     "pinned": true
+  },
+  "bafkafkreibtpjrkaookucpf3w5j6hterfwkprczgd4oq2nfbmg2xasdsutno4": {
+    "cid": "bafkafkreibtpjrkaookucpf3w5j6hterfwkprczgd4oq2nfbmg2xasdsutno4",
+    "filename": "bafkafkreibtpjrkaookucpf3w5j6hterfwkprczgd4oq2nfbmg2xasdsutno4.mp4",
+    "originalName": "test_video.mp4",
+    "mimeType": "video/mp4",
+    "size": 52,
+    "timestamp": "2026-10-06T11:21:50.686Z",
+    "pinned": true,
+    "cloudUrl": "/api/ipfs/bafkafkreibtpjrkaookucpf3w5j6hterfwkprczgd4oq2nfbmg2xasdsutno4",
+    "dataUrl": "data:video/mp4;base64,bW9jayB2aWRlbyBieXRlcyBmb3IgYXV0b21hdGVkIHRlc3RpbmcgMTc5MTI4NTcxMDY4NA==",
+    "filePath": "C:\\Users\\Raana\\OneDrive\\Desktop\\ranna\\projects\\hyperledger\\backend\\uploads\\bafkafkreibtpjrkaookucpf3w5j6hterfwkprczgd4oq2nfbmg2xasdsutno4.mp4",
+    "storageProvider": "cloud-mapping"
+  },
+  "bafkafkreifq4vy3dr6q4ii2racc43ltsqlveuest5wqqbbekzqrozm4onc6fi": {
+    "cid": "bafkafkreifq4vy3dr6q4ii2racc43ltsqlveuest5wqqbbekzqrozm4onc6fi",
+    "filename": "bafkafkreifq4vy3dr6q4ii2racc43ltsqlveuest5wqqbbekzqrozm4onc6fi.mp4",
+    "originalName": "test_video.mp4",
+    "mimeType": "video/mp4",
+    "size": 52,
+    "timestamp": "2026-10-06T11:23:19.460Z",
+    "pinned": true,
+    "cloudUrl": "/api/ipfs/bafkafkreifq4vy3dr6q4ii2racc43ltsqlveuest5wqqbbekzqrozm4onc6fi",
+    "dataUrl": "data:video/mp4;base64,bW9jayB2aWRlbyBieXRlcyBmb3IgYXV0b21hdGVkIHRlc3RpbmcgMTc5MTI4NTc5OTQ1OA==",
+    "filePath": "C:\\Users\\Raana\\OneDrive\\Desktop\\ranna\\projects\\hyperledger\\backend\\uploads\\bafkafkreifq4vy3dr6q4ii2racc43ltsqlveuest5wqqbbekzqrozm4onc6fi.mp4",
+    "storageProvider": "cloud-mapping"
+  },
+  "bafkafkreicp2qa4rt7ly6mve6ctjineuenqgeojkvgxfsnmqj2v7adfs447ie": {
+    "cid": "bafkafkreicp2qa4rt7ly6mve6ctjineuenqgeojkvgxfsnmqj2v7adfs447ie",
+    "filename": "bafkafkreicp2qa4rt7ly6mve6ctjineuenqgeojkvgxfsnmqj2v7adfs447ie.mp4",
+    "originalName": "test_video.mp4",
+    "mimeType": "video/mp4",
+    "size": 52,
+    "timestamp": "2026-10-06T11:25:45.759Z",
+    "pinned": true,
+    "cloudUrl": "/api/ipfs/bafkafkreicp2qa4rt7ly6mve6ctjineuenqgeojkvgxfsnmqj2v7adfs447ie",
+    "dataUrl": "data:video/mp4;base64,bW9jayB2aWRlbyBieXRlcyBmb3IgYXV0b21hdGVkIHRlc3RpbmcgMTc5MTI4NTk0NTc1OA==",
+    "filePath": "C:\\Users\\Raana\\OneDrive\\Desktop\\ranna\\projects\\hyperledger\\backend\\uploads\\bafkafkreicp2qa4rt7ly6mve6ctjineuenqgeojkvgxfsnmqj2v7adfs447ie.mp4",
+    "storageProvider": "cloud-mapping"
   }
 }

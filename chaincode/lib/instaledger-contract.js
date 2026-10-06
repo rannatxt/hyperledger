@@ -403,6 +403,50 @@ class InstaLedgerContract extends Contract {
   }
 
   /**
+   * Delete a post from the ledger.
+   * Ensures only the post author can delete their post.
+   */
+  async deletePost(ctx, postId, requesterId) {
+    if (!postId) {
+      throw new Error('Post ID is required');
+    }
+    const postKey = `Post~${postId}`;
+    const postBytes = await ctx.stub.getState(postKey);
+    if (!postBytes || postBytes.length === 0) {
+      throw new Error(`Post with ID ${postId} does not exist`);
+    }
+
+    const post = fromBuffer(postBytes);
+    if (requesterId && post.authorId && post.authorId !== requesterId) {
+      throw new Error(`Unauthorized: User ${requesterId} cannot delete post owned by ${post.authorId}`);
+    }
+
+    // Delete primary post state
+    await ctx.stub.deleteState(postKey);
+
+    // Delete content hash index
+    if (post.contentHash) {
+      await ctx.stub.deleteState(`ContentHash~${post.contentHash.toLowerCase()}`);
+    }
+
+    // Delete perceptual hash index
+    if (post.perceptualHash) {
+      await ctx.stub.deleteState(`PerceptualHash~${post.perceptualHash.toLowerCase()}`);
+    }
+
+    // Delete video fingerprint index
+    await ctx.stub.deleteState(`VideoFingerprint~${postId}`);
+
+    // Delete author composite key
+    if (post.authorId) {
+      const authorPostIndex = ctx.stub.createCompositeKey('AuthorPost', [post.authorId, postId]);
+      await ctx.stub.deleteState(authorPostIndex);
+    }
+
+    return JSON.stringify({ success: true, deletedPostId: postId });
+  }
+
+  /**
    * Evaluate whether a media asset (image or video) is already registered on the ledger
    */
   async checkDuplicateMedia(

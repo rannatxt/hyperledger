@@ -23,8 +23,24 @@ app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 app.use(morgan('dev'));
 
-// Static uploads serving fallback
+// Static uploads serving fallback with cloud storage layer
 app.use('/uploads', express.static(config.uploadDir));
+app.get('/uploads/:filename', (req, res, next) => {
+  try {
+    const cloudStorage = require('./services/cloudStorage');
+    const filename = req.params.filename;
+    const cid = filename.split('.')[0];
+    const fileEntry = cloudStorage.get(cid);
+    if (fileEntry && fileEntry.buffer) {
+      res.setHeader('Content-Type', fileEntry.meta?.mimeType || 'application/octet-stream');
+      res.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
+      return res.end(fileEntry.buffer);
+    }
+    next();
+  } catch (e) {
+    next();
+  }
+});
 
 // API Routes
 app.use('/api/auth', authRoutes);
