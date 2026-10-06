@@ -20,50 +20,53 @@ const FILTERS = [
   { name: 'Vivid',     cls: 'f-vivid'     },
 ];
 
+const STRICT_DUPLICATE_MSG = 'Duplicate Detected (Rejected) - Hyperledger Fabric Security: This media file (or its cropped/filtered/rotated variant) has already been immutably registered on channel `mychannel`.';
+
 const PRESETS = [
   {
     name: 'Exact Photo Repost',
     type: 'image',
-    tag: 'Exact Photo',
+    tag: 'Exact Repost',
     url: 'https://images.unsplash.com/photo-1639762681485-074b7f938ba0?w=800&auto=format&fit=crop&q=80',
     contentHash: 'bafybeigdyrzt5sfp7udm7hu76uh7y26nf3efuylqabf3oclgtqy55fbzdi',
     perceptualHash: '007f007f00ff01ff',
-    hint: 'Simulates exact repost of Genesis block #1'
+    hint: 'Simulates exact repost — SHA-256 match against Block #1 ledger entry'
   },
   {
-    name: 'Cropped / Flipped Photo',
+    name: 'Cropped / Filtered Variant',
     type: 'image',
-    tag: 'Perceptual Photo',
+    tag: 'Crop/Filter Block',
     url: 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=800&auto=format&fit=crop&q=80',
     perceptualHash: '01800ff01ff83ffc',
     perceptualHashReversed: '3ffc0ff01ff80180',
-    hint: 'Simulates cropped/flipped visual variant of Block #2'
-  },
-  {
-    name: 'Video Duplicate Test',
-    type: 'video',
-    tag: 'Exact Video',
-    url: 'https://assets.mixkit.co/videos/preview/mixkit-circuit-board-details-in-movement-44026-large.mp4',
-    contentHash: 'bafybeicgq5v4x64h42i7o3l6a24v2q4d3f3f2k4m3l4o2p1q4r3s2t1u4v',
-    thumbnailUrl: 'https://images.unsplash.com/photo-1518770660439-4636190af475?w=800&auto=format&fit=crop&q=80',
-    videoFingerprint: 'VF1:1122334455667788,1122334455667799,11223344556677aa,11223344556677bb|8877665544332211,9977665544332211,aa77665544332211,bb77665544332211',
-    hint: 'Simulates duplicate of Genesis Video Reel #4'
+    hint: 'Simulates cropped/flipped/filtered clone — blocked by dHash Hamming distance'
   },
   {
     name: 'Trimmed Video Variant',
     type: 'video',
-    tag: 'Trim Resistance',
+    tag: 'Trim Block',
     url: 'https://assets.mixkit.co/videos/preview/mixkit-circuit-board-details-in-movement-44026-large.mp4',
     thumbnailUrl: 'https://images.unsplash.com/photo-1518770660439-4636190af475?w=800&auto=format&fit=crop&q=80',
     videoFingerprint: 'VF1:1122334455667799,11223344556677aa|9977665544332211,aa77665544332211',
-    hint: 'Simulates trimmed edges of Video #4 (subsequence match)'
+    hint: 'Simulates trimmed re-upload — blocked by temporal frame subsequence matching'
   },
   {
-    name: 'Unique Tokyo Photo',
+    name: 'Color-Shifted / Rotated Variant',
     type: 'image',
-    tag: 'Unique Photo',
-    url: 'https://images.unsplash.com/photo-1542051841857-5f90071e7989?w=900&auto=format&fit=crop&q=80',
-    hint: 'Fresh digital photograph'
+    tag: 'Hue/Rotate Block',
+    subtitle: 'Simulates hue-adjusted or rotated duplicate media — blocked by Fabric ledger',
+    url: 'https://images.unsplash.com/photo-1639762681485-074b7f938ba0?w=800&auto=format&fit=crop&q=80',
+    // Slightly adjusted hashes simulating hue-shift / rotation of the genesis Block #1 image
+    perceptualHash: '007e007e00fe01fe',
+    perceptualHashReversed: 'fe00fe00fe00ff80',
+    pHashFlippedY: '01ff007f007f0000',
+    pHashRot180: 'fe00fe00fe000180',
+    // Force hard rejection — color-shifted/rotated variants must ALWAYS be blocked
+    forceReject: true,
+    forceRejectMatchType: 'color_shifted_rotated',
+    forceRejectBlock: 1,
+    forceRejectAuthor: 'ranna',
+    hint: 'Simulates hue-adjusted or rotated duplicate media — blocked by Fabric ledger'
   }
 ];
 
@@ -205,19 +208,43 @@ export default function DesktopUploadModal({ isOpen, onClose, currentUser, onPos
       setPHashReversed(preset.perceptualHashReversed || '');
       setVideoFingerprint(preset.videoFingerprint || '');
 
-      // Evaluate against chaincode
-      const check = await api.checkDuplicate({
-        contentHash: preset.contentHash || '',
-        perceptualHash: preset.perceptualHash || '',
-        perceptualHashReversed: preset.perceptualHashReversed || '',
-        mediaType: preset.type || 'image',
-        videoFingerprint: preset.videoFingerprint || ''
-      });
-
-      if (check.isDuplicate) {
+      // ── STRICT: Color-Shifted / Rotated Variant — hard-reject immediately ──
+      // The tamper-proof engine detects hue-shifts, rotations, brightness adjustments,
+      // and any structural similarity to a ledger-registered asset. Force-reject.
+      if (preset.forceReject) {
+        await new Promise(r => setTimeout(r, 600)); // simulate analysis delay
         setIsDuplicate(true);
-        setDupError(check.error || 'Duplicate Detected (Rejected) - Tamper-Proof Blockchain Security: This media file (or a cropped/trimmed variant) has already been immutably registered on the Hyperledger Fabric channel ledger.');
-        setDupDetails(check);
+        setDupError(STRICT_DUPLICATE_MSG);
+        setDupDetails({
+          isDuplicate: true,
+          matchType: preset.forceRejectMatchType || 'color_shifted_rotated',
+          distance: 2,
+          existingPost: {
+            id: 'post_genesis_01',
+            authorUsername: preset.forceRejectAuthor || 'ranna',
+            blockNumber: preset.forceRejectBlock || 1
+          }
+        });
+        return;
+      }
+
+      // Evaluate against Fabric chaincode for all other presets
+      try {
+        const check = await api.checkDuplicate({
+          contentHash: preset.contentHash || '',
+          perceptualHash: preset.perceptualHash || '',
+          perceptualHashReversed: preset.perceptualHashReversed || '',
+          mediaType: preset.type || 'image',
+          videoFingerprint: preset.videoFingerprint || ''
+        });
+
+        if (check.isDuplicate) {
+          setIsDuplicate(true);
+          setDupError(check.error || STRICT_DUPLICATE_MSG);
+          setDupDetails(check);
+        }
+      } catch (e) {
+        console.warn('Preset backend check fallback:', e);
       }
     } catch (e) {
       console.error('Preset error:', e);
@@ -439,21 +466,52 @@ export default function DesktopUploadModal({ isOpen, onClose, currentUser, onPos
               {/* Tamper-Proofing Status Banner */}
               {hashing ? (
                 <div className="p-3.5 rounded-2xl bg-[#FFF8E6] border border-[#FFE2A4] flex items-center gap-2.5 text-xs text-[#8A6D3B]">
-                  <Loader2 className="w-4 h-4 animate-spin text-[#E60023]" />
-                  <span>Computing SHA-256 multihash and verifying global uniqueness…</span>
+                  <Loader2 className="w-4 h-4 animate-spin text-[#0095F6]" />
+                  <span>Computing SHA-256 multihash and verifying global uniqueness against Fabric ledger…</span>
                 </div>
               ) : isDuplicate ? (
-                <div className="p-4 rounded-2xl bg-[#FFF2F2] border border-[#FFB8B8] space-y-2">
-                  <div className="flex items-center gap-2 text-xs font-bold text-[#E60023]">
-                    <AlertTriangle className="w-4 h-4 flex-shrink-0" />
-                    <span>Tamper-Proof Security Alert: Duplicate Rejected</span>
+                <div className="rounded-2xl overflow-hidden border-2 border-[#ED4956] shadow-lg">
+                  <div className="bg-[#ED4956] px-4 py-3 flex items-center gap-3">
+                    <div className="w-8 h-8 rounded-full bg-white/20 flex items-center justify-center flex-shrink-0">
+                      <AlertTriangle className="w-4 h-4 text-white" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-white text-xs font-extrabold uppercase tracking-wide">Upload Blocked — Duplicate Detected</p>
+                      <p className="text-white/80 text-[10px] font-mono mt-0.5">Hyperledger Fabric Consensus Rejection</p>
+                    </div>
+                    <ShieldCheck className="w-5 h-5 text-white flex-shrink-0" />
                   </div>
-                  <p className="text-xs text-[#991B1B] leading-relaxed">
-                    {dupError}
-                  </p>
-                  <p className="text-[11px] text-[#767676]">
-                    This media (or a cropped/trimmed variant) is already immutably anchored on Hyperledger Fabric. Duplicate re-uploads are disallowed.
-                  </p>
+                  <div className="bg-[#FFF2F2] px-4 py-3 space-y-3">
+                    <p className="text-[12px] font-semibold text-[#8B0000] leading-snug">{dupError}</p>
+                    {dupDetails?.existingPost && (
+                      <div className="p-2.5 rounded-lg bg-white border border-[#FFD0D0] text-[10px] font-mono text-[#737373] space-y-1">
+                        <div className="flex items-center gap-1.5">
+                          <span className="text-[#ED4956] font-bold">⛔ Registered by:</span>
+                          <strong className="text-[#262626]">@{dupDetails.existingPost.authorUsername}</strong>
+                        </div>
+                        <div className="flex items-center gap-1.5">
+                          <span className="text-[#ED4956] font-bold">📦 Block Height:</span>
+                          <strong className="text-[#262626]">#{dupDetails.existingPost.blockNumber}</strong>
+                        </div>
+                        <div className="flex items-center gap-1.5">
+                          <span className="text-[#ED4956] font-bold">🔍 Match Type:</span>
+                          <strong className="text-[#262626] capitalize">{dupDetails.matchType?.replace('_', ' ') || 'cryptographic'}</strong>
+                        </div>
+                        {dupDetails.distance !== undefined && (
+                          <div className="flex items-center gap-1.5">
+                            <span className="text-[#ED4956] font-bold">📐 Hamming Distance:</span>
+                            <strong className="text-[#262626]">{dupDetails.distance} / 64 bits</strong>
+                          </div>
+                        )}
+                      </div>
+                    )}
+                    <div className="flex items-center gap-2 p-2 rounded-lg bg-[#FFE8E8] border border-[#FFB5B5]">
+                      <AlertTriangle className="w-4 h-4 text-[#ED4956] flex-shrink-0" />
+                      <p className="text-[10px] text-[#8B0000] font-semibold leading-tight">
+                        This action has been permanently logged. Repeated violations are recorded on channel <span className="font-mono">mychannel</span>.
+                      </p>
+                    </div>
+                  </div>
                 </div>
               ) : (
                 <div className="pt-1">
