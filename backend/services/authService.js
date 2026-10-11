@@ -105,39 +105,40 @@ async function authenticateUser(username, password) {
   try {
     const rawAuth = await fabricClient.evaluateTransaction('getUserAuth', profile.username);
     authRecord = JSON.parse(rawAuth);
-  } catch (e) {
-    // Check fallback for default seed users
-    const defaultPass = DEFAULT_PASSWORDS[cleanUser] || DEFAULT_PASSWORDS[profile.username];
-    if (defaultPass && password === defaultPass) {
-      // Create and save auth record to ledger
-      const { hash, salt } = hashPassword(password);
-      authRecord = {
-        userId: profile.id,
-        username: profile.username,
-        passwordHash: hash,
+  } catch (e) {}
+
+  const defaultPass = DEFAULT_PASSWORDS[cleanUser] || DEFAULT_PASSWORDS[profile.username];
+  let isValid = false;
+
+  if (authRecord && authRecord.passwordHash && authRecord.salt) {
+    isValid = verifyPassword(password, authRecord.passwordHash, authRecord.salt);
+  }
+
+  // Fallback for default seed accounts (ranna, elena, marcus)
+  if (!isValid && defaultPass && password === defaultPass) {
+    isValid = true;
+    const { hash, salt } = hashPassword(password);
+    authRecord = {
+      userId: profile.id,
+      username: profile.username,
+      passwordHash: hash,
+      salt,
+      mspId: profile.mspId || MSP_MAP[profile.username] || 'Org1MSP'
+    };
+    try {
+      await fabricClient.submitTransaction(
+        'registerUserAuth',
+        profile.id,
+        profile.username,
+        hash,
         salt,
-        mspId: profile.mspId || MSP_MAP[profile.username] || 'Org1MSP'
-      };
-      try {
-        await fabricClient.submitTransaction(
-          'registerUserAuth',
-          profile.id,
-          profile.username,
-          hash,
-          salt,
-          authRecord.mspId
-        );
-      } catch (errSubmit) {
-        console.warn('Could not persist seed user auth to ledger:', errSubmit.message);
-      }
+        authRecord.mspId
+      );
+    } catch (errSubmit) {
+      console.warn('Could not persist seed user auth to ledger:', errSubmit.message);
     }
   }
 
-  if (!authRecord) {
-    throw new Error('Invalid credentials');
-  }
-
-  const isValid = verifyPassword(password, authRecord.passwordHash, authRecord.salt);
   if (!isValid) {
     throw new Error('Incorrect password');
   }

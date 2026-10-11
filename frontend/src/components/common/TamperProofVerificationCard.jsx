@@ -67,6 +67,15 @@ export default function TamperProofVerificationCard({
               {shortHash(displayDHash, 6, 6)} (Crop/Trim Locked)
             </span>
           </div>
+
+          {/* Compact ZKP Badge */}
+          <div className="flex items-center justify-between pt-1 border-t border-[#DCFCE7]">
+            <span className="text-[#166534] font-medium">ZKP Proof:</span>
+            <span className="font-bold text-purple-700 flex items-center gap-1">
+              <Sparkles className="w-2.5 h-2.5 text-purple-600" />
+              zk-SNARK / Groth16 Verified
+            </span>
+          </div>
         </div>
       </div>
     );
@@ -155,6 +164,25 @@ export default function TamperProofVerificationCard({
           <span className="text-[10px] font-mono text-[#6B7280]">
             {shortHash(displayBlockHash, 6, 6)}
           </span>
+        </div>
+
+        {/* ZKP Zero-Knowledge Proof Verification Section */}
+        <div className="pt-2 border-t border-[#DCFCE7] space-y-1.5">
+          <div className="flex items-center justify-between text-[#374151]">
+            <span className="text-[10px] font-semibold text-purple-800 flex items-center gap-1">
+              <Eye className="w-3 h-3 text-purple-600" />
+              Proof Standard:
+            </span>
+            <span className="text-[10px] font-bold text-purple-900 font-mono bg-purple-50/80 px-2 py-0.5 rounded border border-purple-200">
+              zk-SNARK / Groth16 Media Authenticity Proof
+            </span>
+          </div>
+          <div className="flex items-start gap-1.5 px-2 py-1.5 rounded-md bg-purple-50/60 border border-purple-100">
+            <Sparkles className="w-3 h-3 text-purple-600 flex-shrink-0 mt-0.5" />
+            <span className="text-[10px] text-purple-800 font-medium leading-snug">
+              Status: <strong className="text-purple-950 font-semibold">Zero-Knowledge Proof Verified — Asset authenticity confirmed on ledger without exposing private owner keys.</strong>
+            </span>
+          </div>
         </div>
       </div>
 

@@ -1,6 +1,8 @@
 import { Heart, Send, PlusSquare, ChevronDown, RefreshCw, Monitor } from 'lucide-react';
 
 export default function NavHeader({
+  currentUser,
+  onOpenAccountSwitcher,
   onOpenLedger,
   onOpenActivity,
   onOpenUpload,
@@ -28,15 +30,17 @@ export default function NavHeader({
           </span>
         </div>
 
-        <button
-          onClick={() => { triggerHaptic(); onOpenLedger?.(); }}
-          className="flex items-center gap-1 ml-0.5 px-2 py-0.5 rounded-full bg-[#FAFAFA] hover:bg-[#EFEFEF] text-[9px] font-mono text-[#737373] border border-[#E5E5E5] transition-all active:scale-95"
-          title="Fabric Channel: mychannel"
-        >
-          <span className="w-1.5 h-1.5 rounded-full bg-[#00BA88] animate-pulse" />
-          <span>mychannel</span>
-          <ChevronDown className="w-2.5 h-2.5 text-[#8E8E8E]" />
-        </button>
+        {/* Account Switcher trigger in Header (Photos 4 & 6) */}
+        {currentUser && (
+          <button
+            onClick={() => { triggerHaptic(); onOpenAccountSwitcher?.('switcher'); }}
+            className="flex items-center gap-1 ml-0.5 px-2 py-0.5 rounded-full bg-[#FAFAFA] hover:bg-[#EFEFEF] text-[10px] font-bold text-[#262626] border border-[#E5E5E5] transition-all active:scale-95"
+            title="Switch Instagram Account"
+          >
+            <span className="truncate max-w-[80px]">@{currentUser.username}</span>
+            <ChevronDown className="w-2.5 h-2.5 text-[#8E8E8E]" />
+          </button>
+        )}
       </div>
 
       {/* Action Icons */}

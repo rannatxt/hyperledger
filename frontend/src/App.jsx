@@ -281,6 +281,46 @@ export default function App() {
     );
   });
 
+  // If all accounts log out, render authentic Instagram Login/Signup landing page directly
+  if (!currentUser) {
+    return (
+      <div className="w-full min-h-screen bg-[#FAFAFA] flex items-center justify-center p-4">
+        <InstagramAuthModal
+          isOpen={true}
+          initialView="login"
+          currentUser={null}
+          allUsers={users}
+          onClose={() => {
+            const fallbackUser = users[0] || DEFAULT_USERS[0];
+            setCurrentUser(fallbackUser);
+            try {
+              window.localStorage.setItem('instaledger_auth_user', JSON.stringify(fallbackUser));
+            } catch (e) {}
+            refreshFeed(fallbackUser.id);
+            setAuthOpen(false);
+          }}
+          onSwitchUser={(u) => {
+            setCurrentUser(u);
+            try {
+              window.localStorage.setItem('instaledger_auth_user', JSON.stringify(u));
+            } catch (e) {}
+            refreshFeed(u.id);
+            setAuthOpen(false);
+          }}
+          onAuthSuccess={(u, token) => {
+            setCurrentUser(u);
+            try {
+              window.localStorage.setItem('instaledger_auth_user', JSON.stringify(u));
+            } catch (e) {}
+            refreshFeed(u.id);
+            setAuthOpen(false);
+          }}
+          onLogout={handleLogout}
+        />
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen w-full bg-[#FFFFFF] flex flex-col items-center justify-start p-0 select-none text-[#262626] font-sans">
       {/* ── Blockchain Acceptance Confirmation Toast ── */}

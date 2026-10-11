@@ -40,7 +40,7 @@ export default function DesktopPostCard({
   const isOwner = currentUser && post.authorId === currentUser.id;
 
   // Determine thumbnail or media to show
-  const displayThumbnail = post.thumbnailUrl || (isVideo ? getVideoPosterFallback(post.caption || 'Video Reel', post.id) : post.mediaUrl);
+  const displayThumbnail = post.thumbnailUrl || (isVideo ? getVideoPosterFallback(post.caption || 'Video Reel', post.id) : (post.imageUrl || post.mediaUrl));
 
   const handleTap = () => {
     const now = Date.now();

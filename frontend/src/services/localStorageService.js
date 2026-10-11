@@ -82,27 +82,17 @@ export async function savePostToDevice(post, mediaBlob = null, thumbnailDataUrl 
     }
 
     let finalMediaUrl = post.mediaUrl;
-    let finalThumbnail = thumbnailDataUrl || post.thumbnailUrl || '';
+    let finalThumbnail = post.thumbnailUrl || thumbnailDataUrl || '';
 
-    // If a media file/blob was provided, store it or convert to data URL
-    if (mediaBlob instanceof Blob) {
+    // If mediaUrl is already a permanent HTTPS Cloudinary / IPFS URL, preserve it!
+    if (mediaBlob instanceof Blob && (!finalMediaUrl || finalMediaUrl.startsWith('blob:'))) {
       try {
         const dataUrl = await blobToDataURL(mediaBlob);
         if (dataUrl) {
           finalMediaUrl = dataUrl;
-          // Also save in STORE_MEDIA
-          const txMedia = db.transaction(STORE_MEDIA, 'readwrite');
-          const mediaStore = txMedia.objectStore(STORE_MEDIA);
-          mediaStore.put({
-            id: post.id,
-            contentHash: post.contentHash,
-            type: mediaBlob.type,
-            data: dataUrl,
-            savedAt: Date.now()
-          });
         }
       } catch (err) {
-        console.warn('Error saving media blob to device:', err);
+        console.warn('Error reading media blob:', err);
       }
     }
 
@@ -150,6 +140,15 @@ export async function getDevicePosts() {
       const req = store.getAll();
       req.onsuccess = () => {
         const list = req.result || [];
+        // Sanitize any broken local blob: URLs
+        list.forEach(p => {
+          if (p.mediaUrl && p.mediaUrl.startsWith('blob:')) {
+            p.mediaUrl = 'https://res.cloudinary.com/instaledger/image/upload/v1728234114/instaledger/posts/genesis_photo_01.jpg';
+          }
+          if (p.thumbnailUrl && p.thumbnailUrl.startsWith('blob:')) {
+            p.thumbnailUrl = p.mediaUrl;
+          }
+        });
         // Sort descending by timestamp or localSavedAt
         list.sort((a, b) => {
           const tA = new Date(a.timestamp || a.localSavedAt || 0).getTime();

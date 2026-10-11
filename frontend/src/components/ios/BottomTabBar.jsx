@@ -1,6 +1,6 @@
 import { Home, Search, PlusSquare, Heart, ShieldCheck } from 'lucide-react';
 
-export default function BottomTabBar({ active, onTab, onOpenUpload, currentUser, unreadActivity = 1 }) {
+export default function BottomTabBar({ active, onTab, onOpenUpload, currentUser, unreadActivity = 1, onOpenAccountSwitcher }) {
   const triggerHaptic = () => {
     if (typeof navigator !== 'undefined' && navigator.vibrate) {
       navigator.vibrate([8]);
@@ -74,9 +74,22 @@ export default function BottomTabBar({ active, onTab, onOpenUpload, currentUser,
 
         {/* 5. Profile */}
         <button
-          onClick={() => handleTab('profile')}
+          onClick={() => {
+            if (active === 'profile' && onOpenAccountSwitcher) {
+              triggerHaptic();
+              onOpenAccountSwitcher('switcher');
+            } else {
+              handleTab('profile');
+            }
+          }}
+          onDoubleClick={(e) => {
+            e.preventDefault();
+            triggerHaptic();
+            onOpenAccountSwitcher?.('switcher');
+          }}
           className="p-1 active:scale-90 transition-transform"
           aria-label="Profile"
+          title={active === 'profile' ? "Tap to switch account" : "Profile"}
         >
           {currentUser ? (
             <div

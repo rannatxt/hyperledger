@@ -12,7 +12,8 @@ export default function DesktopInspectorPane({
   posts = [],
   onSelectPost,
   onOpenLedger,
-  onSwitchUser
+  onSwitchUser,
+  onOpenAccountSwitcher
 }) {
   const suggestedUsers = users.filter(u => u.id !== currentUser?.id).slice(0, 4);
 
@@ -40,7 +41,7 @@ export default function DesktopInspectorPane({
             </div>
           </div>
           <button
-            onClick={() => onSwitchUser?.(suggestedUsers[0] || currentUser)}
+            onClick={() => onOpenAccountSwitcher ? onOpenAccountSwitcher('switcher') : onSwitchUser?.(suggestedUsers[0] || currentUser)}
             className="text-xs font-bold text-[#0095F6] hover:text-[#1877F2] px-2 py-1 rounded-md hover:bg-blue-50 transition-colors"
           >
             Switch

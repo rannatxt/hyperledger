@@ -31,3 +31,10 @@ yarn-debug.log*
 Thumbs.db
 .vercel
 .env*
+
+# Uploaded test media binaries
+backend/uploads/*.mp4
+backend/uploads/*.jpeg
+backend/uploads/*.jpg
+backend/uploads/*.jfif
+backend/uploads/*.png

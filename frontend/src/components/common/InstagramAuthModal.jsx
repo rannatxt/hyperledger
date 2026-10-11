@@ -126,20 +126,38 @@ export default function InstagramAuthModal({
     const username = currentUser?.username || 'this account';
     if (!window.confirm(`Log out of @${username}?`)) return;
 
+    let remainingAccounts = [];
     try {
-      // Remove active session
-      localStorage.removeItem('instaledger_auth_user');
-      localStorage.removeItem('instaledger_token');
-
       // Remove from saved accounts list
       const prev = JSON.parse(localStorage.getItem('instaledger_accounts') || '[]');
-      const updated = prev.filter(a => a.id !== currentUser?.id && a.username !== currentUser?.username);
-      localStorage.setItem('instaledger_accounts', JSON.stringify(updated));
-      setAccounts(updated);
+      remainingAccounts = prev.filter(a => a.id !== currentUser?.id && a.username !== currentUser?.username);
+      localStorage.setItem('instaledger_accounts', JSON.stringify(remainingAccounts));
+      setAccounts(remainingAccounts);
     } catch (e) {}
 
-    onLogout?.();
-    onClose();
+    if (remainingAccounts.length > 0) {
+      // Fall back seamlessly to the remaining logged-in accounts
+      const nextUser = remainingAccounts[0];
+      try {
+        localStorage.setItem('instaledger_auth_user', JSON.stringify(nextUser));
+        if (nextUser.token) {
+          localStorage.setItem('instaledger_token', nextUser.token);
+        } else {
+          localStorage.removeItem('instaledger_token');
+        }
+      } catch (e) {}
+      onSwitchUser?.(nextUser);
+      onClose();
+    } else {
+      // If all accounts log out, redirect directly to authentic Instagram Login/Signup landing page
+      try {
+        localStorage.removeItem('instaledger_auth_user');
+        localStorage.removeItem('instaledger_token');
+        localStorage.removeItem('instaledger_accounts');
+      } catch (e) {}
+      onLogout?.();
+      setView('login');
+    }
   };
 
   // Handle logout of ALL accounts
@@ -151,10 +169,11 @@ export default function InstagramAuthModal({
       localStorage.removeItem('instaledger_auth_user');
       localStorage.removeItem('instaledger_token');
       localStorage.removeItem('instaledger_accounts');
+      setAccounts([]);
     } catch (e) {}
 
     onLogout?.();
-    onClose();
+    setView('login');
   };
 
   // Handle Login submission (Photo 5)

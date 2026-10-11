@@ -18,8 +18,16 @@ export default function ProfileView({
   const [switcher, setSwitcher] = useState(false);
 
   const displayUser = user || currentUser;
-  const userPosts = posts.filter(p => p.authorId === displayUser?.id);
-  const isSelf = currentUser && displayUser && currentUser.id === displayUser.id;
+  const userPosts = posts.filter(p =>
+    p.authorId === displayUser?.id ||
+    p.authorUsername === displayUser?.username ||
+    (displayUser?.username && p.authorId === `user_${displayUser.username}`) ||
+    (displayUser?.id && p.authorId === displayUser.id.replace('user_', ''))
+  );
+  const isSelf = currentUser && displayUser && (
+    currentUser.id === displayUser.id ||
+    currentUser.username === displayUser.username
+  );
 
   if (!displayUser) return (
     <div className="flex items-center justify-center py-24 text-[#767676] text-xs">

@@ -20,9 +20,17 @@ export default function ProfileView({
   const [deletingId, setDeletingId] = useState(null);
 
   const displayUser = user || currentUser;
-  const userPosts = posts.filter(p => p.authorId === displayUser?.id);
+  const userPosts = posts.filter(p =>
+    p.authorId === displayUser?.id ||
+    p.authorUsername === displayUser?.username ||
+    (displayUser?.username && p.authorId === `user_${displayUser.username}`) ||
+    (displayUser?.id && p.authorId === displayUser.id.replace('user_', ''))
+  );
   const userReels = userPosts.filter(p => p.mediaType === 'video' || /\.(mp4|webm|mov|m4v)$/i.test(p.mediaUrl || ''));
-  const isSelf = currentUser && displayUser && currentUser.id === displayUser.id;
+  const isSelf = currentUser && displayUser && (
+    currentUser.id === displayUser.id ||
+    currentUser.username === displayUser.username
+  );
 
   if (!displayUser) return (
     <div className="flex items-center justify-center py-24 text-[#8E8E8E] text-xs">

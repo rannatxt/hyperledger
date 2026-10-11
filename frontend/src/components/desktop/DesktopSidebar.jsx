@@ -13,6 +13,7 @@ export default function DesktopSidebar({
   onSwitchUser,
   onOpenUpload,
   onOpenLedger,
+  onOpenAccountSwitcher,
   blockCount = 108
 }) {
   return (
@@ -146,9 +147,17 @@ export default function DesktopSidebar({
 
       {/* ── Bottom Section: Active User & Switcher ── */}
       <div className="pt-3 border-t border-[#EAEAEA] space-y-2">
-        <span className="text-[10px] font-bold text-[#8E8E8E] uppercase tracking-wider px-1">
-          Switch Identity
-        </span>
+        <div className="flex items-center justify-between px-1">
+          <span className="text-[10px] font-bold text-[#8E8E8E] uppercase tracking-wider">
+            Switch Identity
+          </span>
+          <button
+            onClick={() => onOpenAccountSwitcher?.('switcher')}
+            className="text-[11px] font-bold text-[#0095F6] hover:underline"
+          >
+            Manage Accounts
+          </button>
+        </div>
 
         <div className="space-y-1">
           {users.slice(0, 4).map(u => {

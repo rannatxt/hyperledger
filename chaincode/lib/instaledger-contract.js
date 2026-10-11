@@ -76,7 +76,7 @@ class InstaLedgerContract extends Contract {
         docType: 'auth',
         userId: profile.id,
         username: profile.username.toLowerCase(),
-        passwordHash: '8b7f87ee5d57b328a6f69ad9827376c69784eec24823485ba57ff3df8c0607340b17e4bb0d740c02580a6c0b1e19488b394ee898b3353e6b216fb9a572a1cf5e',
+        passwordHash: '0591ff2bd89abefd1474e65b0f5cee774452a1f09c23d8ee5043eac3663f90d7c250791fd2faa5269d8b70e382b474d64855877e000f3377508f8ee04aa373fe',
         salt: 'genesis_instaledger_salt',
         mspId: profile.mspId || 'Org1MSP'
       };
@@ -90,7 +90,7 @@ class InstaLedgerContract extends Contract {
       docType: 'auth',
       userId: 'user_elena',
       username: 'elena',
-      passwordHash: '8b7f87ee5d57b328a6f69ad9827376c69784eec24823485ba57ff3df8c0607340b17e4bb0d740c02580a6c0b1e19488b394ee898b3353e6b216fb9a572a1cf5e',
+      passwordHash: '0591ff2bd89abefd1474e65b0f5cee774452a1f09c23d8ee5043eac3663f90d7c250791fd2faa5269d8b70e382b474d64855877e000f3377508f8ee04aa373fe',
       salt: 'genesis_instaledger_salt',
       mspId: 'Org2MSP'
     }));
@@ -98,7 +98,7 @@ class InstaLedgerContract extends Contract {
       docType: 'auth',
       userId: 'user_marcus',
       username: 'marcus',
-      passwordHash: '8b7f87ee5d57b328a6f69ad9827376c69784eec24823485ba57ff3df8c0607340b17e4bb0d740c02580a6c0b1e19488b394ee898b3353e6b216fb9a572a1cf5e',
+      passwordHash: '0591ff2bd89abefd1474e65b0f5cee774452a1f09c23d8ee5043eac3663f90d7c250791fd2faa5269d8b70e382b474d64855877e000f3377508f8ee04aa373fe',
       salt: 'genesis_instaledger_salt',
       mspId: 'Org3MSP'
     }));

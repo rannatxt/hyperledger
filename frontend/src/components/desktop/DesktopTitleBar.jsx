@@ -15,7 +15,8 @@ export default function DesktopTitleBar({
   onOpenLedger,
   searchQuery,
   setSearchQuery,
-  onOpenUpload
+  onOpenUpload,
+  onOpenAccountSwitcher
 }) {
   const isDesktop = viewMode === 'desktop-ios' || viewMode === 'desktop';
 
@@ -59,6 +60,27 @@ export default function DesktopTitleBar({
 
       {/* ── Right: Action Buttons & Layout Toggle ── */}
       <div className="flex items-center gap-2">
+        {/* Active Account Switcher button (Photo 4) */}
+        {currentUser && (
+          <button
+            onClick={() => onOpenAccountSwitcher?.('switcher')}
+            className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-[#FAFAFA] hover:bg-[#EFEFEF] border border-[#DBDBDB] text-xs font-bold text-[#262626] transition-all"
+            title="Switch Instagram Account"
+          >
+            <img
+              src={currentUser.avatarUrl}
+              alt={currentUser.username}
+              className="w-5 h-5 rounded-full object-cover"
+              onError={(e) => {
+                e.currentTarget.onerror = null;
+                e.currentTarget.src = `https://api.dicebear.com/7.x/bottts/svg?seed=${currentUser.username}`;
+              }}
+            />
+            <span>@{currentUser.username}</span>
+            <span className="text-[#737373] text-[10px]">▼</span>
+          </button>
+        )}
+
         {/* Sync Button */}
         <button
           onClick={onRefresh}
