@@ -8,6 +8,8 @@ const fabricClient = require('../services/fabricClient');
 const ipfsService = require('../services/ipfsService');
 const perceptualHashService = require('../services/perceptualHash');
 
+const STRICT_FABRIC_WARNING = 'Duplicate Detected (Rejected) - Hyperledger Fabric Security: This media file (or its cropped/filtered/trimmed/rotated variant) has already been immutably registered on the channel ledger.';
+
 const upload = multer({
   storage: multer.memoryStorage(),
   limits: { fileSize: 50 * 1024 * 1024 } // 50MB for video support
@@ -25,7 +27,9 @@ router.post('/', upload.single('media'), async (req, res) => {
       perceptualHashReversed,
       mediaType = 'image',
       videoFingerprint = '',
-      thumbnailUrl = ''
+      thumbnailUrl = '',
+      pHashFlippedY = '',
+      pHashRot180 = ''
     } = req.body;
 
     if (!authorId) {
@@ -48,6 +52,8 @@ router.post('/', upload.single('media'), async (req, res) => {
       const fp = perceptualHashService.computePerceptualFingerprint(req.file.buffer, req.file.mimetype);
       perceptualHash = fp.pHash;
       perceptualHashReversed = fp.pHashReversed;
+      pHashFlippedY = fp.pHashFlippedY || '';
+      pHashRot180 = fp.pHashRot180 || '';
       if (isVideo) {
         videoFingerprint = fp.videoFingerprint;
       }
@@ -55,6 +61,37 @@ router.post('/', upload.single('media'), async (req, res) => {
 
     if (!contentHash) {
       return res.status(400).json({ error: 'Either media file or contentHash (IPFS CID) is required' });
+    }
+
+    // Prior global check against all world state posts before ledger commit
+    try {
+      const rawFeed = await fabricClient.evaluateTransaction('getFeed');
+      const allPosts = JSON.parse(rawFeed);
+      const uniqueness = perceptualHashService.checkGlobalUniqueness(
+        contentHash,
+        perceptualHash,
+        perceptualHashReversed,
+        allPosts,
+        12,
+        mediaType,
+        videoFingerprint,
+        pHashFlippedY
+      );
+      if (uniqueness.isDuplicate) {
+        return res.status(409).json({
+          error: STRICT_FABRIC_WARNING,
+          tamperProofError: true,
+          matchType: uniqueness.matchType,
+          existingPost: uniqueness.existingPost
+        });
+      }
+    } catch (checkErr) {
+      if (checkErr.message && (checkErr.message.includes('Tamper-Proof') || checkErr.message.includes('Duplicate Detected'))) {
+        return res.status(409).json({
+          error: STRICT_FABRIC_WARNING,
+          tamperProofError: true
+        });
+      }
     }
 
     const postId = 'post_' + crypto.randomBytes(8).toString('hex');
@@ -87,10 +124,11 @@ router.post('/', upload.single('media'), async (req, res) => {
       (err.message.includes('Tamper-Proof Security Error') ||
        err.message.includes('Tamper-Proof Blockchain Security') ||
        err.message.includes('Blockchain Security Alert') ||
-       err.message.includes('Tamper-proof'))
+       err.message.includes('Tamper-proof') ||
+       err.message.includes('Duplicate Detected'))
     ) {
       return res.status(409).json({
-        error: 'Duplicate Detected (Rejected) - Tamper-Proof Blockchain Security: This media file (or a cropped/trimmed variant) has already been immutably registered on the Hyperledger Fabric channel ledger.',
+        error: STRICT_FABRIC_WARNING,
         tamperProofError: true
       });
     }
@@ -106,7 +144,9 @@ router.post('/check-duplicate', upload.single('media'), async (req, res) => {
       perceptualHash,
       perceptualHashReversed,
       mediaType = 'image',
-      videoFingerprint = ''
+      videoFingerprint = '',
+      pHashFlippedY = '',
+      pHashRot180 = ''
     } = req.body;
 
     // If a media file was attached, compute SHA-256 and multi-media fingerprints on the fly
@@ -115,6 +155,8 @@ router.post('/check-duplicate', upload.single('media'), async (req, res) => {
       contentHash = fp.sha256;
       perceptualHash = fp.pHash;
       perceptualHashReversed = fp.pHashReversed;
+      pHashFlippedY = fp.pHashFlippedY || '';
+      pHashRot180 = fp.pHashRot180 || '';
       mediaType = fp.mediaType;
       videoFingerprint = fp.videoFingerprint || '';
     }
@@ -123,25 +165,58 @@ router.post('/check-duplicate', upload.single('media'), async (req, res) => {
       return res.status(400).json({ error: 'Either media file, contentHash, perceptualHash, or videoFingerprint is required' });
     }
 
-    // Evaluate against Fabric chaincode
-    const rawCheck = await fabricClient.evaluateTransaction(
-      'checkDuplicateMedia',
-      contentHash || '',
-      perceptualHash || '',
-      perceptualHashReversed || '',
-      mediaType || 'image',
-      videoFingerprint || ''
-    );
-    const checkResult = JSON.parse(rawCheck);
+    // 1. Evaluate against Fabric chaincode
+    let chaincodeDuplicate = false;
+    let checkResult = {};
+    try {
+      const rawCheck = await fabricClient.evaluateTransaction(
+        'checkDuplicateMedia',
+        contentHash || '',
+        perceptualHash || '',
+        perceptualHashReversed || '',
+        mediaType || 'image',
+        videoFingerprint || ''
+      );
+      checkResult = JSON.parse(rawCheck);
+      if (checkResult.isDuplicate) {
+        chaincodeDuplicate = true;
+      }
+    } catch (e) {
+      console.warn('Chaincode check duplicate evaluation warning:', e.message);
+    }
 
-    if (checkResult.isDuplicate) {
+    // 2. Cross-verify against all world state posts via perceptualHashService
+    let globalMatch = false;
+    let globalResult = {};
+    try {
+      const rawFeed = await fabricClient.evaluateTransaction('getFeed');
+      const allPosts = JSON.parse(rawFeed);
+      globalResult = perceptualHashService.checkGlobalUniqueness(
+        contentHash,
+        perceptualHash,
+        perceptualHashReversed,
+        allPosts,
+        12,
+        mediaType,
+        videoFingerprint,
+        pHashFlippedY
+      );
+      if (globalResult.isDuplicate) {
+        globalMatch = true;
+      }
+    } catch (e) {
+      console.warn('Global check evaluation warning:', e.message);
+    }
+
+    if (chaincodeDuplicate || globalMatch) {
+      const resMatch = chaincodeDuplicate ? checkResult : globalResult;
       return res.json({
         isDuplicate: true,
-        matchType: checkResult.matchType || 'perceptual',
-        distance: checkResult.distance,
-        similarity: checkResult.similarity,
-        existingPost: checkResult.existingPost,
-        error: checkResult.error || 'Duplicate Detected (Rejected) - Tamper-Proof Blockchain Security: This media file (or a cropped/trimmed variant) has already been immutably registered on the Hyperledger Fabric channel ledger.'
+        matchType: resMatch.matchType || 'perceptual',
+        distance: resMatch.distance,
+        similarity: resMatch.similarity,
+        existingPost: resMatch.existingPost,
+        error: STRICT_FABRIC_WARNING
       });
     }
 
@@ -160,7 +235,7 @@ router.post('/check-duplicate', upload.single('media'), async (req, res) => {
   }
 });
 
-// Get global feed
+// Get global shared feed
 router.get('/feed', async (req, res) => {
   try {
     const raw = await fabricClient.evaluateTransaction('getFeed');
@@ -182,6 +257,28 @@ router.get('/feed', async (req, res) => {
       return res.json(enriched);
     }
 
+    res.json(posts);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Get community explore posts (shared across all accounts on the network)
+router.get('/explore', async (req, res) => {
+  try {
+    const raw = await fabricClient.evaluateTransaction('getFeed');
+    const posts = JSON.parse(raw);
+    res.json(posts);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Get posts by author
+router.get('/user/:userId', async (req, res) => {
+  try {
+    const raw = await fabricClient.evaluateTransaction('getPostsByAuthor', req.params.userId);
+    const posts = JSON.parse(raw);
     res.json(posts);
   } catch (err) {
     res.status(500).json({ error: err.message });

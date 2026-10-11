@@ -39,6 +39,7 @@ class InstaLedgerContract extends Contract {
         avatarUrl: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80',
         followerCount: 3,
         followingCount: 1,
+        mspId: 'Org1MSP',
         createdAt: '2026-09-01T10:00:00.000Z'
       },
       {
@@ -49,6 +50,7 @@ class InstaLedgerContract extends Contract {
         avatarUrl: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=150&auto=format&fit=crop&q=80',
         followerCount: 2,
         followingCount: 2,
+        mspId: 'Org2MSP',
         createdAt: '2026-09-02T11:00:00.000Z'
       },
       {
@@ -59,6 +61,7 @@ class InstaLedgerContract extends Contract {
         avatarUrl: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150&auto=format&fit=crop&q=80',
         followerCount: 1,
         followingCount: 2,
+        mspId: 'Org3MSP',
         createdAt: '2026-09-03T12:00:00.000Z'
       }
     ];
@@ -67,7 +70,38 @@ class InstaLedgerContract extends Contract {
       const record = { docType: 'profile', ...profile };
       await ctx.stub.putState(`Profile~${profile.id}`, toBuffer(record));
       await ctx.stub.putState(`Username~${profile.username.toLowerCase()}`, toBuffer({ userId: profile.id }));
+
+      // Seed auth credentials: password123
+      const authRecord = {
+        docType: 'auth',
+        userId: profile.id,
+        username: profile.username.toLowerCase(),
+        passwordHash: '8b7f87ee5d57b328a6f69ad9827376c69784eec24823485ba57ff3df8c0607340b17e4bb0d740c02580a6c0b1e19488b394ee898b3353e6b216fb9a572a1cf5e',
+        salt: 'genesis_instaledger_salt',
+        mspId: profile.mspId || 'Org1MSP'
+      };
+      await ctx.stub.putState(`Auth~${profile.username.toLowerCase()}`, toBuffer(authRecord));
     }
+
+    // Aliases for user conveniences
+    await ctx.stub.putState(`Username~elena`, toBuffer({ userId: 'user_elena' }));
+    await ctx.stub.putState(`Username~marcus`, toBuffer({ userId: 'user_marcus' }));
+    await ctx.stub.putState(`Auth~elena`, toBuffer({
+      docType: 'auth',
+      userId: 'user_elena',
+      username: 'elena',
+      passwordHash: '8b7f87ee5d57b328a6f69ad9827376c69784eec24823485ba57ff3df8c0607340b17e4bb0d740c02580a6c0b1e19488b394ee898b3353e6b216fb9a572a1cf5e',
+      salt: 'genesis_instaledger_salt',
+      mspId: 'Org2MSP'
+    }));
+    await ctx.stub.putState(`Auth~marcus`, toBuffer({
+      docType: 'auth',
+      userId: 'user_marcus',
+      username: 'marcus',
+      passwordHash: '8b7f87ee5d57b328a6f69ad9827376c69784eec24823485ba57ff3df8c0607340b17e4bb0d740c02580a6c0b1e19488b394ee898b3353e6b216fb9a572a1cf5e',
+      salt: 'genesis_instaledger_salt',
+      mspId: 'Org3MSP'
+    }));
 
     // Genesis Posts with simulated IPFS CIDs, 64-bit perceptual hashes, and video frame signatures
     const defaultPosts = [
@@ -203,7 +237,7 @@ class InstaLedgerContract extends Contract {
     return profileBytes && profileBytes.length > 0;
   }
 
-  async createProfile(ctx, userId, username, displayName, bio, avatarUrl) {
+  async createProfile(ctx, userId, username, displayName, bio, avatarUrl, mspId = 'Org1MSP') {
     if (!userId || !username) {
       throw new Error('UserId and username are required');
     }
@@ -228,6 +262,7 @@ class InstaLedgerContract extends Contract {
       avatarUrl: avatarUrl || `https://api.dicebear.com/7.x/bottts/svg?seed=${username}`,
       followerCount: 0,
       followingCount: 0,
+      mspId: mspId || 'Org1MSP',
       createdAt: new Date().toISOString()
     };
 
@@ -235,6 +270,28 @@ class InstaLedgerContract extends Contract {
     await ctx.stub.putState(usernameKey, toBuffer({ userId }));
 
     return JSON.stringify(newProfile);
+  }
+
+  async registerUserAuth(ctx, userId, username, passwordHash, salt, mspId = 'Org1MSP') {
+    const authRecord = {
+      docType: 'auth',
+      userId,
+      username: username.toLowerCase().trim(),
+      passwordHash,
+      salt,
+      mspId: mspId || 'Org1MSP',
+      updatedAt: new Date().toISOString()
+    };
+    await ctx.stub.putState(`Auth~${username.toLowerCase().trim()}`, toBuffer(authRecord));
+    return JSON.stringify(authRecord);
+  }
+
+  async getUserAuth(ctx, username) {
+    const authBytes = await ctx.stub.getState(`Auth~${username.toLowerCase().trim()}`);
+    if (!authBytes || authBytes.length === 0) {
+      throw new Error(`Authentication record for @${username} not found`);
+    }
+    return authBytes.toString('utf8');
   }
 
   async getProfile(ctx, userId) {

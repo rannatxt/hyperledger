@@ -36,7 +36,9 @@ export default function PostCard({
   const isVideo = post.mediaType === 'video' || /\.(mp4|webm|mov|m4v)$/i.test(post.mediaUrl || '');
   const isOwner = currentUser && post.authorId === currentUser.id;
 
-  const displayThumbnail = post.thumbnailUrl || (isVideo ? getVideoPosterFallback(post.caption, post.id) : post.mediaUrl);
+  // Robust URL resolution: imageUrl carries base64/blob data from upload, mediaUrl for remote assets
+  const resolvedMediaUrl = post.imageUrl || post.mediaUrl || '';
+  const displayThumbnail = post.thumbnailUrl || (isVideo ? getVideoPosterFallback(post.caption, post.id) : resolvedMediaUrl);
 
   const triggerHaptic = (type = 'light') => {
     if (typeof navigator !== 'undefined' && navigator.vibrate) {
@@ -116,6 +118,10 @@ export default function PostCard({
                 src={post.authorAvatar}
                 alt={post.authorUsername}
                 className="w-full h-full rounded-full object-cover"
+                onError={(e) => {
+                  e.currentTarget.onerror = null;
+                  e.currentTarget.src = `https://api.dicebear.com/7.x/bottts/svg?seed=${post.authorUsername || 'user'}`;
+                }}
               />
             </div>
           </div>
@@ -152,7 +158,7 @@ export default function PostCard({
           <>
             <video
               ref={videoRef}
-              src={post.mediaUrl}
+              src={resolvedMediaUrl}
               poster={displayThumbnail}
               loop
               muted={isMuted}
@@ -189,10 +195,14 @@ export default function PostCard({
           </>
         ) : (
           <img
-            src={post.mediaUrl}
+            src={resolvedMediaUrl}
             alt={post.caption || 'post'}
             className={`w-full h-full object-cover ${filterClass}`}
             loading="lazy"
+            onError={(e) => {
+              e.currentTarget.onerror = null;
+              e.currentTarget.src = 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=900&auto=format&fit=crop&q=80';
+            }}
           />
         )}
 

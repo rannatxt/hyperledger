@@ -1,8 +1,12 @@
 'use strict';
 
+const fs = require('fs');
+const path = require('path');
 const crypto = require('crypto');
 const InstaLedgerContract = require('../../chaincode/lib/instaledger-contract');
 const config = require('../config/config');
+
+const PERSISTENCE_FILE = path.resolve(__dirname, '..', 'data', 'ledger_world_state.json');
 
 class EngineIterator {
   constructor(items) {
@@ -91,9 +95,61 @@ class FabricEngine {
     this.isInitialized = false;
   }
 
+  persist() {
+    try {
+      const stateObj = {};
+      for (const [key, val] of this.worldState.entries()) {
+        stateObj[key] = Buffer.isBuffer(val) ? val.toString('base64') : Buffer.from(val).toString('base64');
+      }
+      const data = {
+        blockNumber: this.blockNumber,
+        previousBlockHash: this.previousBlockHash,
+        blocks: this.blocks,
+        transactions: Array.from(this.transactions.entries()),
+        worldState: stateObj
+      };
+      const dataDir = path.dirname(PERSISTENCE_FILE);
+      if (!fs.existsSync(dataDir)) {
+        fs.mkdirSync(dataDir, { recursive: true });
+      }
+      const tmpFile = PERSISTENCE_FILE + '.tmp';
+      fs.writeFileSync(tmpFile, JSON.stringify(data, null, 2), 'utf8');
+      fs.renameSync(tmpFile, PERSISTENCE_FILE);
+    } catch (err) {
+      console.warn('Failed to persist Fabric World State to disk:', err.message);
+    }
+  }
+
+  loadFromDisk() {
+    try {
+      if (!fs.existsSync(PERSISTENCE_FILE)) return false;
+      const raw = fs.readFileSync(PERSISTENCE_FILE, 'utf8');
+      const data = JSON.parse(raw);
+      if (!data || !data.worldState) return false;
+
+      this.worldState.clear();
+      for (const [key, b64] of Object.entries(data.worldState)) {
+        this.worldState.set(key, Buffer.from(b64, 'base64'));
+      }
+      this.blocks = data.blocks || [];
+      this.transactions = new Map(data.transactions || []);
+      this.blockNumber = data.blockNumber || 0;
+      this.previousBlockHash = data.previousBlockHash || '0000000000000000000000000000000000000000000000000000000000000000';
+      return true;
+    } catch (err) {
+      console.warn('Could not restore Fabric World State from disk:', err.message);
+      return false;
+    }
+  }
+
   async init() {
     if (this.isInitialized) return;
     this.isInitialized = true;
+
+    if (this.loadFromDisk() && this.blocks.length > 0 && this.worldState.size > 0) {
+      console.log(`Hyperledger Fabric Engine restored from disk (${this.blocks.length} blocks, ${this.worldState.size} world state keys).`);
+      return;
+    }
 
     // Create Genesis Block #0
     const genesisTime = new Date('2026-09-01T00:00:00.000Z').toISOString();
@@ -124,6 +180,7 @@ class FabricEngine {
 
     // Run contract initLedger
     await this.submitTransaction('initLedger');
+    this.persist();
     console.log('Hyperledger Fabric Engine initialized with genesis data on channel:', config.channelName);
   }
 
@@ -191,6 +248,8 @@ class FabricEngine {
     this.transactions.set(txId, txRecord);
     this.previousBlockHash = blockHash;
     this.blockNumber++;
+
+    this.persist();
 
     return result;
   }

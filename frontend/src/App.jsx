@@ -17,6 +17,7 @@ import ExploreView          from './components/ios/ExploreView';
 import UploadSheet          from './components/ios/UploadSheet';
 import PostAcceptedToast    from './components/ios/PostAcceptedToast';
 import PostDetailsModal     from './components/common/PostDetailsModal';
+import InstagramAuthModal   from './components/common/InstagramAuthModal';
 
 import { api } from './services/api';
 import { getDevicePosts, deletePostFromDevice, savePostToDevice } from './services/localStorageService';
@@ -80,7 +81,16 @@ export default function App() {
   }, [viewMode]);
   const [posts,         setPosts]         = useState([]);
   const [users,         setUsers]         = useState(DEFAULT_USERS);
-  const [currentUser,   setCurrentUser]   = useState(DEFAULT_USERS[0]);
+  const [currentUser,   setCurrentUser]   = useState(() => {
+    try {
+      const saved = window.localStorage.getItem('instaledger_auth_user');
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (parsed && (parsed.id || parsed.username)) return parsed;
+      }
+    } catch {}
+    return DEFAULT_USERS[0];
+  });
   const [loadingFeed,   setLoadingFeed]   = useState(true);
   const [searchQuery,   setSearchQuery]   = useState('');
 
@@ -91,6 +101,26 @@ export default function App() {
   const [selectedPost,  setSelectedPost]  = useState(null);
   const [detailsPost,   setDetailsPost]   = useState(null);
   const [acceptedPost,  setAcceptedPost]  = useState(null);
+  const [authOpen,      setAuthOpen]      = useState(false);
+  const [authView,      setAuthView]      = useState('switcher'); // 'switcher' | 'add-account' | 'login' | 'signup'
+
+  const openAccountSwitcher = (view = 'switcher') => {
+    setAuthView(view);
+    setAuthOpen(true);
+  };
+
+  // Handle logout: clear session and go back to auth/login modal
+  const handleLogout = () => {
+    setCurrentUser(null);
+    setPosts([]);
+    try {
+      window.localStorage.removeItem('instaledger_auth_user');
+      window.localStorage.removeItem('instaledger_token');
+    } catch {}
+    // Reopen auth modal in login view so user sees Instagram login screen
+    setAuthView('login');
+    setAuthOpen(true);
+  };
 
   const isDesktop = viewMode === 'desktop-ios' || viewMode === 'desktop';
 
@@ -113,7 +143,18 @@ export default function App() {
         const userList = loadedUsers?.users || loadedUsers;
         if (Array.isArray(userList) && userList.length > 0) {
           setUsers(userList);
-          setCurrentUser(userList[0]);
+          try {
+            const saved = window.localStorage.getItem('instaledger_auth_user');
+            if (saved) {
+              const parsed = JSON.parse(saved);
+              const found = userList.find(u => u.id === parsed?.id || u.username === parsed?.username);
+              if (found) {
+                setCurrentUser(found);
+                return;
+              }
+            }
+          } catch {}
+          setCurrentUser(prev => prev || userList[0]);
         }
       } catch (err) {
         console.warn('Using offline fallback identities:', err);
@@ -289,11 +330,14 @@ export default function App() {
             searchQuery={searchQuery}
             setSearchQuery={setSearchQuery}
             onOpenUpload={() => setUploadOpen(true)}
+            onOpenAccountSwitcher={openAccountSwitcher}
           />
         ) : (
           <>
             <StatusBar onDynamicIslandClick={() => setLedgerOpen(true)} />
             <NavHeader
+              currentUser={currentUser}
+              onOpenAccountSwitcher={openAccountSwitcher}
               onOpenLedger={() => setLedgerOpen(true)}
               onOpenActivity={() => setLedgerOpen(true)}
               onOpenUpload={() => setUploadOpen(true)}
@@ -317,6 +361,7 @@ export default function App() {
               onSwitchUser={(u) => { setCurrentUser(u); refreshFeed(u.id); }}
               onOpenUpload={() => setUploadOpen(true)}
               onOpenLedger={() => setLedgerOpen(true)}
+              onOpenAccountSwitcher={openAccountSwitcher}
               blockCount={posts.length + 104}
             />
 
@@ -405,6 +450,7 @@ export default function App() {
                     onSwitchUser={u => { setCurrentUser(u); refreshFeed(u.id); }}
                     onSelectPost={(post) => setDetailsPost(post)}
                     onDeletePost={handleDeletePost}
+                    onOpenAccountSwitcher={openAccountSwitcher}
                   />
                 )}
               </div>
@@ -418,6 +464,7 @@ export default function App() {
               onSelectPost={(post) => setDetailsPost(post)}
               onOpenLedger={() => setLedgerOpen(true)}
               onSwitchUser={(u) => { setCurrentUser(u); refreshFeed(u.id); }}
+              onOpenAccountSwitcher={openAccountSwitcher}
             />
           </div>
         ) : (
@@ -498,6 +545,7 @@ export default function App() {
                   onSwitchUser={u => { setCurrentUser(u); refreshFeed(u.id); }}
                   onSelectPost={(post) => setDetailsPost(post)}
                   onDeletePost={handleDeletePost}
+                  onOpenAccountSwitcher={openAccountSwitcher}
                 />
               )}
             </main>
@@ -509,6 +557,7 @@ export default function App() {
               onOpenUpload={() => setUploadOpen(true)}
               currentUser={currentUser}
               unreadActivity={1}
+              onOpenAccountSwitcher={openAccountSwitcher}
             />
           </div>
         )}
@@ -550,6 +599,36 @@ export default function App() {
               ));
             }
           }}
+        />
+
+        {/* ── Instagram Authentic Multi-User Auth Modal (Photos 4, 5, 6, 7) ── */}
+        <InstagramAuthModal
+          isOpen={authOpen}
+          initialView={authView}
+          currentUser={currentUser}
+          allUsers={users}
+          onClose={() => setAuthOpen(false)}
+          onSwitchUser={(u) => {
+            setCurrentUser(u);
+            try {
+              window.localStorage.setItem('instaledger_auth_user', JSON.stringify(u));
+            } catch (e) {}
+            refreshFeed(u.id);
+          }}
+          onAuthSuccess={(u, token) => {
+            setCurrentUser(u);
+            try {
+              window.localStorage.setItem('instaledger_auth_user', JSON.stringify(u));
+            } catch (e) {}
+            refreshFeed(u.id);
+            api.getUsers().then(list => {
+              const uList = list?.users || list;
+              if (Array.isArray(uList) && uList.length > 0) {
+                setUsers(uList);
+              }
+            }).catch(() => {});
+          }}
+          onLogout={handleLogout}
         />
       </div>
     </div>

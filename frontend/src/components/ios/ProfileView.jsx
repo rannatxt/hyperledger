@@ -12,7 +12,8 @@ export default function ProfileView({
   currentUser,
   onSwitchUser,
   onSelectPost,
-  onDeletePost
+  onDeletePost,
+  onOpenAccountSwitcher
 }) {
   const [tab, setTab] = useState('grid'); // 'grid' | 'reels' | 'saved'
   const [switcher, setSwitcher] = useState(false);
@@ -45,12 +46,20 @@ export default function ProfileView({
 
   const displayedList = tab === 'reels' ? userReels : userPosts;
 
+  const handleOpenSwitcher = () => {
+    if (onOpenAccountSwitcher) {
+      onOpenAccountSwitcher('switcher');
+    } else {
+      setSwitcher(s => !s);
+    }
+  };
+
   return (
     <div className="w-full max-w-2xl mx-auto pb-24 bg-white text-[#262626] select-none font-sans">
       {/* ── Top Bar with Account Switcher ── */}
       <div className="flex items-center justify-between px-4 py-2.5 border-b border-[#EFEFEF] bg-white sticky top-0 z-20">
         <button
-          onClick={() => setSwitcher(s => !s)}
+          onClick={handleOpenSwitcher}
           className="flex items-center gap-1.5 hover:bg-[#FAFAFA] px-2 py-1 rounded-lg transition-colors"
         >
           <span className="font-bold text-base tracking-tight text-[#262626]">{displayUser.username}</span>
@@ -59,7 +68,7 @@ export default function ProfileView({
         </button>
 
         <button
-          onClick={() => setSwitcher(s => !s)}
+          onClick={handleOpenSwitcher}
           className="text-xs text-[#0095F6] font-semibold px-2.5 py-1 rounded-md hover:bg-[#0095F6]/10 transition-colors"
         >
           Switch Identity
@@ -150,7 +159,7 @@ export default function ProfileView({
         {/* Profile Action Buttons */}
         <div className="flex gap-2 mt-4">
           <button
-            onClick={() => setSwitcher(true)}
+            onClick={handleOpenSwitcher}
             className="flex-1 py-1.5 rounded-lg bg-[#EFEFEF] hover:bg-[#DBDBDB] text-xs font-semibold text-[#262626] transition-colors text-center active:scale-98"
           >
             Switch Identity
@@ -231,7 +240,11 @@ export default function ProfileView({
           <div className="ig-profile-grid">
             {displayedList.map((post) => {
               const isVideo = post.mediaType === 'video' || /\.(mp4|webm|mov|m4v)$/i.test(post.mediaUrl || '');
-              const thumb = post.thumbnailUrl || (isVideo ? getVideoPosterFallback(post.caption, post.id) : post.mediaUrl);
+              // Robust URL fallback chain: imageUrl (base64/blob) → mediaUrl → thumbnailUrl → video poster fallback
+              const rawUrl = post.imageUrl || post.mediaUrl || post.thumbnailUrl || '';
+              const thumb = post.thumbnailUrl ||
+                (isVideo ? getVideoPosterFallback(post.caption, post.id) : rawUrl) ||
+                getVideoPosterFallback(post.caption, post.id);
               const isDeletingThis = deletingId === post.id;
 
               return (
@@ -240,12 +253,36 @@ export default function ProfileView({
                   onClick={() => onSelectPost?.(post)}
                   className={`ig-grid-item group ${isDeletingThis ? 'opacity-30 pointer-events-none' : ''}`}
                 >
-                  <img
-                    src={thumb}
-                    alt={post.caption || 'grid media'}
-                    className={`w-full h-full object-cover transition-transform duration-300 group-hover:scale-105 f-${post.filterName?.toLowerCase() || 'normal'}`}
-                    loading="lazy"
-                  />
+                  {isVideo && !post.thumbnailUrl ? (
+                    /* Video without pre-generated thumbnail: show native video element for preview */
+                    <div className="w-full h-full relative overflow-hidden bg-black flex items-center justify-center">
+                      <video
+                        src={post.mediaUrl || post.imageUrl}
+                        muted
+                        playsInline
+                        preload="metadata"
+                        className={`w-full h-full object-cover transition-transform duration-300 group-hover:scale-105 f-${post.filterName?.toLowerCase() || 'normal'}`}
+                        onError={(e) => { e.currentTarget.poster = getVideoPosterFallback(post.caption, post.id); }}
+                      />
+                    </div>
+                  ) : (
+                    <img
+                      src={thumb}
+                      alt={post.caption || 'grid media'}
+                      className={`w-full h-full object-cover transition-transform duration-300 group-hover:scale-105 f-${post.filterName?.toLowerCase() || 'normal'}`}
+                      loading="lazy"
+                      onError={(e) => {
+                        e.currentTarget.onerror = null;
+                        // Fallback 1: try raw URL if thumb was a derived value
+                        if (e.currentTarget.src !== rawUrl && rawUrl) {
+                          e.currentTarget.src = rawUrl;
+                        } else {
+                          // Fallback 2: curated Cloudinary seed asset
+                          e.currentTarget.src = 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=600&auto=format&fit=crop&q=80';
+                        }
+                      }}
+                    />
+                  )}
 
                   {/* Video Reel Icon badge in top right */}
                   {isVideo && (
