@@ -150,7 +150,7 @@ export default function AuthGateModal({ isOpen, onClose, onAuthSuccess, currentA
                     type="text"
                     value={username}
                     onChange={(e) => setUsername(e.target.value)}
-                    placeholder="ranna, elena, or marcus"
+                    placeholder="ranna, teacher_eva, or megha"
                     autoCapitalize="none"
                     className="w-full pl-9 pr-3 py-2.5 bg-[#F9FAFB] border border-[#E5E7EB] rounded-xl text-sm text-[#111111] placeholder:text-[#9CA3AF] focus:outline-none focus:border-[#2563EB] focus:bg-white transition-all"
                   />
@@ -221,43 +221,43 @@ export default function AuthGateModal({ isOpen, onClose, onAuthSuccess, currentA
 
                   <button
                     type="button"
-                    onClick={() => quickLogin('elena', 'password123')}
+                    onClick={() => quickLogin('teacher_eva', 'profPassword123')}
                     className="p-2.5 bg-[#F9FAFB] hover:bg-[#F3F4F6] border border-[#E5E7EB] rounded-xl text-left flex items-center justify-between transition-colors group"
                   >
                     <div className="flex items-center gap-2.5">
                       <img
-                        src="https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=150"
-                        alt="elena"
+                        src="https://images.unsplash.com/photo-1544005313-94ddf0286df2?w=150"
+                        alt="teacher_eva"
                         className="w-7 h-7 rounded-full object-cover"
                       />
                       <div>
-                        <div className="text-xs font-bold text-[#111111]">@elena</div>
-                        <div className="text-[10px] text-[#6B7280]">pass: password123</div>
+                        <div className="text-xs font-bold text-[#111111]">@teacher_eva</div>
+                        <div className="text-[10px] text-[#6B7280]">pass: profPassword123</div>
                       </div>
                     </div>
-                    <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-purple-100 text-purple-800 font-semibold">
-                      Org2MSP · Peer
+                    <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-indigo-100 text-indigo-800 font-semibold">
+                      Org1MSP · Instructor
                     </span>
                   </button>
 
                   <button
                     type="button"
-                    onClick={() => quickLogin('marcus', 'password123')}
+                    onClick={() => quickLogin('megha', 'password123')}
                     className="p-2.5 bg-[#F9FAFB] hover:bg-[#F3F4F6] border border-[#E5E7EB] rounded-xl text-left flex items-center justify-between transition-colors group"
                   >
                     <div className="flex items-center gap-2.5">
                       <img
-                        src="https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150"
-                        alt="marcus"
+                        src="https://images.unsplash.com/photo-1517841905240-472988babdf9?w=150"
+                        alt="megha"
                         className="w-7 h-7 rounded-full object-cover"
                       />
                       <div>
-                        <div className="text-xs font-bold text-[#111111]">@marcus</div>
+                        <div className="text-xs font-bold text-[#111111]">@megha</div>
                         <div className="text-[10px] text-[#6B7280]">pass: password123</div>
                       </div>
                     </div>
-                    <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-emerald-100 text-emerald-800 font-semibold">
-                      Org3MSP · Storage
+                    <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-purple-100 text-purple-800 font-semibold">
+                      Org1MSP · Peer
                     </span>
                   </button>
                 </div>

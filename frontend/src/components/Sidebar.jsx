@@ -141,7 +141,7 @@ export default function Sidebar({
                 isDark ? 'bg-[#181818] border-[#262626] text-white' : 'bg-gray-100 border-gray-300 text-black'
               }`}
             >
-              {users.map((u) => (
+              {users.filter(u => u && u.username !== 'elena_crypto' && u.username !== 'marcus_art').map((u) => (
                 <option key={u.id} value={u.id}>
                   @{u.username} ({u.displayName})
                 </option>

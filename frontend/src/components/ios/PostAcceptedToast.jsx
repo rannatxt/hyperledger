@@ -5,8 +5,15 @@ import { shortHash } from '../../utils/crypto';
 export default function PostAcceptedToast({ post, onClose, onInspectLedger }) {
   if (!post) return null;
 
-  const isVideo = post.mediaType === 'video' || /\.(mp4|webm|mov|m4v)$/i.test(post.mediaUrl || '');
-  const thumb = post.thumbnailUrl || post.mediaUrl;
+  const rawUrl = post.previewUrl || post.thumbnailUrl || post.imageUrl || post.mediaUrl || post.videoUrl || '';
+  const isVideo = post.mediaType === 'video' ||
+    Boolean(post.videoUrl) ||
+    /\.(mp4|webm|mov|m4v)(\?.*)?$/i.test(rawUrl) ||
+    (typeof rawUrl === 'string' && rawUrl.startsWith('data:video/'));
+
+  const mediaUrl = rawUrl || (isVideo
+    ? 'https://images.unsplash.com/photo-1518770660439-4636190af475?w=200&auto=format&fit=crop&q=80'
+    : 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=200&auto=format&fit=crop&q=80');
 
   return (
     <div className="fixed top-4 left-1/2 -translate-x-1/2 z-50 w-[95%] max-w-md animate-sheet-up font-sans select-none">
@@ -43,15 +50,43 @@ export default function PostAcceptedToast({ post, onClose, onInspectLedger }) {
         {/* Post Metadata Card */}
         <div className="mt-3 p-2.5 rounded-xl bg-[#FAFAFA] border border-[#EAEAEA] flex items-center gap-3">
           {/* Thumbnail preview */}
-          <div className="w-12 h-12 rounded-lg bg-black overflow-hidden flex-shrink-0 relative border border-[#DBDBDB]">
-            <img
-              src={thumb}
-              alt="accepted post"
-              className="w-full h-full object-cover"
-            />
+          <div
+            className="w-12 h-12 rounded-lg bg-[#262626] overflow-hidden flex-shrink-0 relative border border-[#DBDBDB] flex items-center justify-center bg-cover bg-center"
+            style={mediaUrl && !isVideo ? { backgroundImage: `url(${mediaUrl})`, backgroundSize: 'cover', backgroundPosition: 'center', backgroundRepeat: 'no-repeat' } : undefined}
+          >
+            {isVideo ? (
+              post.thumbnailUrl ? (
+                <img
+                  src={post.thumbnailUrl}
+                  alt="accepted post frame"
+                  className="w-12 h-12 rounded object-cover"
+                  onError={(e) => {
+                    e.currentTarget.onerror = null;
+                    e.currentTarget.src = 'https://images.unsplash.com/photo-1518770660439-4636190af475?w=200&auto=format&fit=crop&q=80';
+                  }}
+                />
+              ) : (
+                <video
+                  src={mediaUrl}
+                  muted
+                  playsInline
+                  className="w-12 h-12 rounded object-cover pointer-events-none"
+                />
+              )
+            ) : (
+              <img
+                src={mediaUrl}
+                alt="accepted post"
+                className="w-12 h-12 rounded object-cover"
+                onError={(e) => {
+                  e.currentTarget.onerror = null;
+                  e.currentTarget.src = 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=200&auto=format&fit=crop&q=80';
+                }}
+              />
+            )}
             {isVideo && (
-              <div className="absolute top-1 right-1 text-white">
-                <Film className="w-3 h-3 fill-white" />
+              <div className="absolute top-1 right-1 text-white bg-black/60 rounded-full p-0.5 pointer-events-none">
+                <Film className="w-2.5 h-2.5 fill-white" />
               </div>
             )}
           </div>

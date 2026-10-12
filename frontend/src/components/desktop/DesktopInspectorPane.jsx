@@ -15,7 +15,10 @@ export default function DesktopInspectorPane({
   onSwitchUser,
   onOpenAccountSwitcher
 }) {
-  const suggestedUsers = users.filter(u => u.id !== currentUser?.id).slice(0, 4);
+  const DUMMY_ACCOUNTS = new Set(['elena_crypto', 'marcus_art']);
+  const suggestedUsers = users
+    .filter(u => u && u.id !== currentUser?.id && !DUMMY_ACCOUNTS.has(u.username))
+    .slice(0, 4);
 
   return (
     <aside className="w-[330px] h-full bg-[#FFFFFF] border-l border-[#E5E5E5] p-5 flex flex-col gap-5 overflow-y-auto no-scrollbar select-none flex-shrink-0 font-sans shadow-[-1px_0_4px_rgba(0,0,0,0.02)]">

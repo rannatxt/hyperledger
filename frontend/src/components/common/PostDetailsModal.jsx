@@ -8,7 +8,7 @@ import TamperProofVerificationCard from './TamperProofVerificationCard';
 import { shortHash, relativeTime } from '../../utils/crypto';
 
 export default function PostDetailsModal({
-  post,
+  post: rawPost,
   isOpen,
   onClose,
   currentUser,
@@ -19,7 +19,7 @@ export default function PostDetailsModal({
   const [comments, setComments] = useState(() => [
     {
       id: 'cmt_1',
-      author: 'elena_crypto',
+      author: 'teacher_eva',
       text: 'Verified on ledger! The transaction speed on Fabric is remarkable.',
       time: '32m ago'
     },
@@ -35,9 +35,35 @@ export default function PostDetailsModal({
   const [saved, setSaved] = useState(false);
   const videoRef = useRef(null);
 
-  if (!isOpen || !post) return null;
+  if (!isOpen || !rawPost) return null;
 
-  const isVideo = post.mediaType === 'video' || /\.(mp4|webm|mov|m4v)$/i.test(post.mediaUrl || '');
+  // Pick the best available media URL — prefer local data URLs (always work) over remote ones
+  const dynamicMediaUrl =
+    // 1. previewUrl is always the original local data URL from the file picker
+    rawPost.previewUrl ||
+    // 2. imageUrl saved locally (data URL from IndexedDB)
+    (rawPost.imageUrl && rawPost.imageUrl.startsWith('data:') ? rawPost.imageUrl : null) ||
+    // 3. videoUrl saved locally
+    (rawPost.videoUrl && rawPost.videoUrl.startsWith('data:') ? rawPost.videoUrl : null) ||
+    // 4. mediaUrl if it looks like a real accessible URL (not just a CID)
+    rawPost.mediaUrl ||
+    // 5. thumbnailUrl as last visual fallback
+    rawPost.thumbnailUrl ||
+    rawPost.imageUrl ||
+    rawPost.videoUrl ||
+    '';
+
+  const post = {
+    ...rawPost,
+    mediaUrl: dynamicMediaUrl
+  };
+
+
+  const isVideo = post.mediaType === 'video' ||
+    Boolean(post.videoUrl) ||
+    /\.(mp4|webm)(\?.*)?$/i.test(post.mediaUrl || '') ||
+    /\.(mp4|webm|mov|m4v)(\?.*)?$/i.test(post.mediaUrl || '') ||
+    (typeof post.mediaUrl === 'string' && post.mediaUrl.startsWith('data:video/'));
 
   const handleAddComment = (e) => {
     e.preventDefault();
@@ -52,24 +78,6 @@ export default function PostDetailsModal({
       }
     ]);
     setCommentText('');
-  };
-
-  const toggleVideo = () => {
-    if (!videoRef.current) return;
-    if (videoRef.current.paused) {
-      videoRef.current.play();
-      setIsPlaying(true);
-    } else {
-      videoRef.current.pause();
-      setIsPlaying(false);
-    }
-  };
-
-  const toggleMute = (e) => {
-    e.stopPropagation();
-    if (!videoRef.current) return;
-    videoRef.current.muted = !videoRef.current.muted;
-    setIsMuted(videoRef.current.muted);
   };
 
   return (
@@ -87,38 +95,21 @@ export default function PostDetailsModal({
         {/* ── Left: Media Display Container ── */}
         <div className="w-full md:w-7/12 bg-black flex items-center justify-center relative min-h-[300px] md:min-h-[540px] max-h-[60vh] md:max-h-none overflow-hidden">
           {isVideo ? (
-            <div className="relative w-full h-full flex items-center justify-center cursor-pointer" onClick={toggleVideo}>
-              <video
-                ref={videoRef}
-                src={post.mediaUrl}
-                poster={post.thumbnailUrl}
-                loop
-                muted={isMuted}
-                playsInline
-                className="max-w-full max-h-[540px] object-contain"
-                onPlay={() => setIsPlaying(true)}
-                onPause={() => setIsPlaying(false)}
-              />
-              {!isPlaying && (
-                <div className="absolute inset-0 flex items-center justify-center bg-black/25 pointer-events-none">
-                  <div className="w-14 h-14 rounded-full bg-black/60 backdrop-blur-md flex items-center justify-center text-white">
-                    <Play className="w-6 h-6 fill-white ml-0.5" />
-                  </div>
-                </div>
-              )}
-              <button
-                onClick={toggleMute}
-                className="absolute bottom-3 right-3 p-2 rounded-full bg-black/60 text-white backdrop-blur-md hover:bg-black/80"
-                aria-label="Toggle sound"
-              >
-                {isMuted ? <VolumeX className="w-4 h-4" /> : <Volume2 className="w-4 h-4" />}
-              </button>
-            </div>
+            <video
+              ref={videoRef}
+              src={post.mediaUrl}
+              controls
+              autoPlay
+              loop
+              muted
+              playsInline
+              className="w-full h-full object-contain"
+            />
           ) : (
             <img
               src={post.mediaUrl}
-              alt={post.caption || 'Asset preview'}
-              className="max-w-full max-h-[540px] object-contain"
+              className="w-full h-full object-contain"
+              alt="Post content"
             />
           )}
         </div>
@@ -163,9 +154,13 @@ export default function PostDetailsModal({
             {/* Caption */}
             <div className="flex items-start gap-2.5">
               <img
-                src={post.authorAvatar}
+                src={post.authorAvatar || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80'}
                 alt=""
                 className="w-7 h-7 rounded-full object-cover flex-shrink-0 mt-0.5"
+                onError={(e) => {
+                  e.currentTarget.onerror = null;
+                  e.currentTarget.src = 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80';
+                }}
               />
               <div className="text-xs text-[#262626] leading-relaxed">
                 <span className="font-bold mr-1.5">{post.authorUsername}</span>

@@ -333,9 +333,12 @@ export default function UploadSheet({ isOpen, onClose, currentUser, onPostCreate
         authorUsername: currentUser.username,
         authorAvatar: currentUser.avatarUrl,
         caption: caption || 'Decentralized media post verified on Hyperledger Fabric ⛓️',
-        mediaUrl: persistentFallbackUrl,
+        mediaUrl: preview || persistentFallbackUrl,
+        imageUrl: preview,
+        videoUrl: mediaType === 'video' ? preview : '',
+        previewUrl: preview,
         mediaType: mediaType,
-        thumbnailUrl: resolvedThumbnail,
+        thumbnailUrl: resolvedThumbnail || preview,
         filterName: filter.name,
         contentHash: sha256 || ('cid_' + Math.random().toString(36).slice(2)),
         perceptualHash: pHash,
@@ -371,12 +374,20 @@ export default function UploadSheet({ isOpen, onClose, currentUser, onPostCreate
         const res = await api.createPost(fd);
         if (res && res._partialFailure) {
           console.warn('Post saved with local fallback:', res.error);
-          finalPost = { ...basePost, ...res };
+          finalPost = { ...basePost, ...res, previewUrl: preview, imageUrl: preview, mediaUrl: preview || res.mediaUrl };
         } else {
-          finalPost = res?.post || res || basePost;
+          const serverPost = res?.post || res || {};
+          finalPost = {
+            ...basePost,
+            ...serverPost,
+            previewUrl: preview,
+            imageUrl: preview || serverPost.imageUrl || serverPost.mediaUrl,
+            mediaUrl: (serverPost.mediaUrl && !serverPost.mediaUrl.includes('genesis')) ? serverPost.mediaUrl : (preview || basePost.mediaUrl),
+            thumbnailUrl: resolvedThumbnail || serverPost.thumbnailUrl || preview
+          };
         }
-        // Save post with permanent Cloudinary URL to local phone storage
-        await savePostToDevice(finalPost, null, finalPost.thumbnailUrl || resolvedThumbnail).catch(() => {});
+        // Save post with file buffer to local device storage
+        await savePostToDevice(finalPost, file, finalPost.thumbnailUrl || resolvedThumbnail).catch(() => {});
       } catch (err) {
         console.error('Backend post creation error:', err);
         if (
@@ -392,7 +403,7 @@ export default function UploadSheet({ isOpen, onClose, currentUser, onPostCreate
         }
         // If non-duplicate error (e.g. serverless body size / offline), save basePost to device
         console.warn('Non-duplicate error during post creation, saving locally on device:', err);
-        await savePostToDevice(basePost, null, resolvedThumbnail).catch(() => {});
+        await savePostToDevice(basePost, file, resolvedThumbnail).catch(() => {});
         finalPost = basePost;
       }
 

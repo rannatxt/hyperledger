@@ -8,6 +8,7 @@ import { computeFileSHA256, shortHash } from '../../utils/crypto';
 import { computeClientPerceptualHash, computeClientVideoFingerprint } from '../../utils/perceptualHash';
 import { extractVideoThumbnail, getVideoPosterFallback } from '../../utils/thumbnail';
 import { api } from '../../services/api';
+import { savePostToDevice } from '../../services/localStorageService';
 import TamperProofVerificationCard from '../common/TamperProofVerificationCard';
 
 const FILTERS = [
@@ -279,13 +280,47 @@ export default function DesktopUploadModal({ isOpen, onClose, currentUser, onPos
       if (pHashReversed) fd.append('perceptualHashReversed', pHashReversed);
       if (videoFingerprint) fd.append('videoFingerprint', videoFingerprint);
 
+      const basePost = {
+        id: 'post_' + Math.random().toString(36).slice(2, 10),
+        authorId: currentUser.id,
+        authorUsername: currentUser.username,
+        authorAvatar: currentUser.avatarUrl,
+        caption: caption || 'Decentralized media post verified on Hyperledger Fabric ⛓️',
+        mediaUrl: preview,
+        imageUrl: preview,
+        videoUrl: mediaType === 'video' ? preview : '',
+        previewUrl: preview,
+        mediaType: mediaType,
+        thumbnailUrl: thumbnailUrl || preview,
+        contentHash: sha256 || ('cid_' + Math.random().toString(36).slice(2)),
+        perceptualHash: pHash,
+        perceptualHashReversed: pHashReversed,
+        videoFingerprint: videoFingerprint,
+        likeCount: 0,
+        commentCount: 0,
+        isLikedByViewer: false,
+        timestamp: new Date().toISOString(),
+        blockNumber: 100 + Math.floor(Math.random() * 50)
+      };
+
       let result;
       try {
         result = await api.createPost(fd);
         if (result && result._partialFailure) {
           console.warn('Post saved with local fallback:', result.error);
-          result = { ...basePost, ...result };
+          result = { ...basePost, ...result, previewUrl: preview, imageUrl: preview, mediaUrl: preview };
+        } else {
+          const serverPost = result?.post || result || {};
+          result = {
+            ...basePost,
+            ...serverPost,
+            previewUrl: preview,
+            imageUrl: preview || serverPost.imageUrl || serverPost.mediaUrl,
+            mediaUrl: preview || serverPost.mediaUrl || basePost.mediaUrl,
+            thumbnailUrl: thumbnailUrl || serverPost.thumbnailUrl || preview
+          };
         }
+        await savePostToDevice(result, file, result.thumbnailUrl || preview).catch(() => {});
       } catch (err) {
         if (
           err.tamperProofError ||
@@ -299,6 +334,7 @@ export default function DesktopUploadModal({ isOpen, onClose, currentUser, onPos
           return;
         }
         console.warn('Network issue during desktop post creation, using basePost:', err);
+        await savePostToDevice(basePost, file, thumbnailUrl || preview).catch(() => {});
         result = basePost;
       }
 
@@ -318,6 +354,7 @@ export default function DesktopUploadModal({ isOpen, onClose, currentUser, onPos
         setDupError(err.message || STRICT_DUPLICATE_MSG);
         setStage(1);
       } else {
+        await savePostToDevice(basePost, file, thumbnailUrl || preview).catch(() => {});
         onPostCreated(basePost);
         close();
       }

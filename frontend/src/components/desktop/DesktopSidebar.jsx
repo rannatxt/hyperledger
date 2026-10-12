@@ -160,7 +160,7 @@ export default function DesktopSidebar({
         </div>
 
         <div className="space-y-1">
-          {users.slice(0, 4).map(u => {
+          {users.filter(u => u && u.username !== 'elena_crypto' && u.username !== 'marcus_art').slice(0, 4).map(u => {
             const isActive = u.id === currentUser?.id;
             return (
               <button

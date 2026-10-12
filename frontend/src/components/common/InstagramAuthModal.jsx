@@ -32,6 +32,8 @@ function InstagramWordmark({ className = "h-10 w-auto" }) {
   );
 }
 
+const DUMMY_ACCOUNTS = new Set(['elena_crypto', 'marcus_art']);
+
 export default function InstagramAuthModal({
   isOpen,
   initialView = 'switcher', // 'switcher' (Photo 4) | 'add-account' (Photo 6) | 'login' (Photo 5) | 'signup' (Photo 7)
@@ -72,18 +74,24 @@ export default function InstagramAuthModal({
     }
   }, [isOpen, initialView]);
 
-  // Load cached accounts from localStorage
+  // Load cached accounts from localStorage (excluding dummy accounts)
   const loadCachedAccounts = () => {
     try {
       const stored = JSON.parse(localStorage.getItem('instaledger_accounts') || '[]');
       if (Array.isArray(stored) && stored.length > 0) {
-        setAccounts(stored);
+        const cleaned = stored.filter(a => a && a.username && !DUMMY_ACCOUNTS.has(a.username));
+        setAccounts(cleaned);
+        localStorage.setItem('instaledger_accounts', JSON.stringify(cleaned));
       } else if (allUsers && allUsers.length > 0) {
-        // Fallback to initial seeds
-        setAccounts(allUsers.slice(0, 4));
+        // Fallback to initial seeds (excluding dummy accounts)
+        const cleaned = allUsers.filter(a => a && a.username && !DUMMY_ACCOUNTS.has(a.username));
+        setAccounts(cleaned.slice(0, 4));
       }
     } catch (e) {
-      if (allUsers) setAccounts(allUsers.slice(0, 4));
+      if (allUsers) {
+        const cleaned = allUsers.filter(a => a && a.username && !DUMMY_ACCOUNTS.has(a.username));
+        setAccounts(cleaned.slice(0, 4));
+      }
     }
   };
 
@@ -130,9 +138,17 @@ export default function InstagramAuthModal({
     try {
       // Remove from saved accounts list
       const prev = JSON.parse(localStorage.getItem('instaledger_accounts') || '[]');
-      remainingAccounts = prev.filter(a => a.id !== currentUser?.id && a.username !== currentUser?.username);
+      remainingAccounts = prev.filter(
+        a => a.id !== currentUser?.id && a.username !== currentUser?.username && !DUMMY_ACCOUNTS.has(a.username)
+      );
       localStorage.setItem('instaledger_accounts', JSON.stringify(remainingAccounts));
       setAccounts(remainingAccounts);
+    } catch (e) {}
+
+    // Clean up current active session state directly
+    try {
+      localStorage.removeItem('instaledger_auth_user');
+      localStorage.removeItem('instaledger_token');
     } catch (e) {}
 
     if (remainingAccounts.length > 0) {
@@ -151,29 +167,11 @@ export default function InstagramAuthModal({
     } else {
       // If all accounts log out, redirect directly to authentic Instagram Login/Signup landing page
       try {
-        localStorage.removeItem('instaledger_auth_user');
-        localStorage.removeItem('instaledger_token');
         localStorage.removeItem('instaledger_accounts');
       } catch (e) {}
       onLogout?.();
       setView('login');
     }
-  };
-
-  // Handle logout of ALL accounts
-  const handleLogoutAll = () => {
-    triggerHaptic('light');
-    if (!window.confirm('Log out of all accounts? You will need to log back in.')) return;
-
-    try {
-      localStorage.removeItem('instaledger_auth_user');
-      localStorage.removeItem('instaledger_token');
-      localStorage.removeItem('instaledger_accounts');
-      setAccounts([]);
-    } catch (e) {}
-
-    onLogout?.();
-    setView('login');
   };
 
   // Handle Login submission (Photo 5)
@@ -290,11 +288,17 @@ export default function InstagramAuthModal({
     handleLoginSubmit(null, u, p);
   };
 
-  // Available display accounts (merging cached accounts and default users)
+  // Available display accounts (merging cached accounts and default users, excluding dummy accounts)
   const displayAccountsMap = new Map();
-  accounts.forEach(a => displayAccountsMap.set(a.username, a));
+  accounts.forEach(a => {
+    if (a && a.username && !DUMMY_ACCOUNTS.has(a.username)) {
+      displayAccountsMap.set(a.username, a);
+    }
+  });
   (allUsers || []).forEach(a => {
-    if (!displayAccountsMap.has(a.username)) displayAccountsMap.set(a.username, a);
+    if (a && a.username && !DUMMY_ACCOUNTS.has(a.username) && !displayAccountsMap.has(a.username)) {
+      displayAccountsMap.set(a.username, a);
+    }
   });
   const displayAccounts = Array.from(displayAccountsMap.values());
 
@@ -402,24 +406,14 @@ export default function InstagramAuthModal({
               </button>
             </div>
 
-            {/* ── Logout Buttons ── */}
-            <div className="px-4 pb-5 pt-1 space-y-2 border-t border-[#EFEFEF]">
-              {/* Log Out current account */}
+            {/* ── Streamlined Logout Option: Current Account Only ── */}
+            <div className="px-4 pb-5 pt-1 border-t border-[#EFEFEF]">
               <button
                 onClick={handleLogout}
                 className="w-full flex items-center justify-center gap-2 py-3 rounded-2xl border border-[#ED4956]/30 text-[#ED4956] font-semibold text-sm hover:bg-[#ED4956]/5 active:bg-[#ED4956]/10 transition-all"
               >
                 <LogOut className="w-4 h-4" />
                 <span>Log Out @{currentUser?.username || 'account'}</span>
-              </button>
-
-              {/* Log Out All Accounts */}
-              <button
-                onClick={handleLogoutAll}
-                className="w-full flex items-center justify-center gap-2 py-2.5 rounded-2xl text-[#737373] font-medium text-xs hover:text-[#ED4956] hover:bg-[#ED4956]/5 transition-all"
-              >
-                <LogOut className="w-3.5 h-3.5" />
-                <span>Log Out of All Accounts</span>
               </button>
             </div>
           </div>
@@ -604,27 +598,19 @@ export default function InstagramAuthModal({
                   </button>
                   <button
                     type="button"
-                    onClick={() => quickFillLogin('elena', 'password123')}
-                    className="p-2 rounded-lg bg-[#FAFAFA] hover:bg-purple-50 border border-[#E5E5E5] text-xs font-semibold text-[#262626] transition-colors"
-                  >
-                    @elena
-                    <span className="block text-[10px] text-[#737373] font-normal font-mono">Org2MSP · Peer</span>
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => quickFillLogin('marcus', 'password123')}
-                    className="p-2 rounded-lg bg-[#FAFAFA] hover:bg-emerald-50 border border-[#E5E5E5] text-xs font-semibold text-[#262626] transition-colors"
-                  >
-                    @marcus
-                    <span className="block text-[10px] text-[#737373] font-normal font-mono">Org3MSP · Storage</span>
-                  </button>
-                  <button
-                    type="button"
                     onClick={() => quickFillLogin('teacher_eva', 'profPassword123')}
                     className="p-2 rounded-lg bg-[#FAFAFA] hover:bg-indigo-50 border border-[#E5E5E5] text-xs font-semibold text-[#262626] transition-colors"
                   >
                     @teacher_eva
                     <span className="block text-[10px] text-[#737373] font-normal font-mono">Org1MSP · Instructor</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => quickFillLogin('megha', 'password123')}
+                    className="p-2 rounded-lg bg-[#FAFAFA] hover:bg-purple-50 border border-[#E5E5E5] text-xs font-semibold text-[#262626] transition-colors"
+                  >
+                    @megha
+                    <span className="block text-[10px] text-[#737373] font-normal font-mono">Org1MSP · Peer</span>
                   </button>
                 </div>
               </div>

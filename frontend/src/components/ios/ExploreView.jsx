@@ -141,7 +141,7 @@ export default function ExploreView({
         <div className="py-20 text-center space-y-2 text-[#737373]">
           <Search className="w-8 h-8 mx-auto text-[#DBDBDB]" />
           <p className="text-sm font-semibold text-[#262626]">No matching assets found</p>
-          <p className="text-xs">Try searching for other creators like elena_crypto or hyper_peer</p>
+          <p className="text-xs">Try searching for other creators like teacher_eva or hyper_peer</p>
         </div>
       ) : viewLayout === 'feed' ? (
         /* ── EXPLORE FEED VIEW (Author handles, captions, fake block hashes, engagement buttons) ── */
@@ -321,20 +321,25 @@ export default function ExploreView({
         /* ── 3-Column Square Instagram Explore Grid ── */
         <div className="ig-profile-grid p-1">
           {filtered.map(post => {
-            const isVideo = post.mediaType === 'video' || /\.(mp4|webm|mov|m4v)$/i.test(post.mediaUrl || '');
-            const thumb = post.thumbnailUrl || (isVideo ? getVideoPosterFallback(post.caption, post.id) : post.mediaUrl);
+            const isVideo = post.mediaType === 'video' || Boolean(post.videoUrl) || /\.(mp4|webm|mov|m4v)$/i.test(post.mediaUrl || post.imageUrl || post.previewUrl || '');
+            const rawMedia = post.previewUrl || post.imageUrl || post.mediaUrl || '';
+            const thumb = post.thumbnailUrl || (isVideo ? getVideoPosterFallback(post.caption, post.id) : rawMedia) || 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=600&auto=format&fit=crop&q=80';
 
             return (
               <div
                 key={post.id}
                 onClick={() => onSelectPost?.(post)}
-                className="ig-grid-item group rounded-sm overflow-hidden"
+                className="relative aspect-square overflow-hidden rounded-md bg-[#FAFAFA] cursor-pointer group select-none"
               >
                 <img
                   src={thumb}
                   alt={post.caption || 'explore media'}
                   className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
                   loading="lazy"
+                  onError={(e) => {
+                    e.currentTarget.onerror = null;
+                    e.currentTarget.src = 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=600&auto=format&fit=crop&q=80';
+                  }}
                 />
 
                 {/* Video Indicator */}

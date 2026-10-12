@@ -36,11 +36,12 @@ export default function DesktopPostCard({
   const videoRef = useRef(null);
   const lastTap = useRef(0);
 
-  const isVideo = post.mediaType === 'video' || /\.(mp4|webm|mov|m4v)$/i.test(post.mediaUrl || '');
+  const isVideo = post.mediaType === 'video' || Boolean(post.videoUrl) || /\.(mp4|webm|mov|m4v)$/i.test(post.mediaUrl || post.imageUrl || post.previewUrl || '');
   const isOwner = currentUser && post.authorId === currentUser.id;
 
   // Determine thumbnail or media to show
-  const displayThumbnail = post.thumbnailUrl || (isVideo ? getVideoPosterFallback(post.caption || 'Video Reel', post.id) : (post.imageUrl || post.mediaUrl));
+  const resolvedMedia = post.previewUrl || post.imageUrl || post.mediaUrl || '';
+  const displayThumbnail = post.thumbnailUrl || (isVideo ? getVideoPosterFallback(post.caption || 'Video Reel', post.id) : resolvedMedia) || 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=900&auto=format&fit=crop&q=80';
 
   const handleTap = () => {
     const now = Date.now();
@@ -124,12 +125,16 @@ export default function DesktopPostCard({
             <div className="relative w-full aspect-[4/5] bg-black">
               <video
                 ref={videoRef}
-                src={post.mediaUrl}
+                src={resolvedMedia || post.mediaUrl}
                 autoPlay
                 loop
                 muted={isMuted}
                 playsInline
                 className="w-full h-full object-cover"
+                onError={(e) => {
+                  e.currentTarget.onerror = null;
+                  e.currentTarget.src = 'https://assets.mixkit.co/videos/preview/mixkit-circuit-board-details-in-movement-44026-large.mp4';
+                }}
               />
               {/* Live Video Controls */}
               <div className="absolute bottom-3 right-3 flex items-center gap-1.5 z-20">
@@ -156,6 +161,10 @@ export default function DesktopPostCard({
                 alt={post.caption || 'Media post'}
                 className={`w-full h-full object-cover transition-transform duration-500 group-hover:scale-105 ${filterClass}`}
                 loading="lazy"
+                onError={(e) => {
+                  e.currentTarget.onerror = null;
+                  e.currentTarget.src = 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=900&auto=format&fit=crop&q=80';
+                }}
               />
 
               {/* Video Badge / Play Trigger */}

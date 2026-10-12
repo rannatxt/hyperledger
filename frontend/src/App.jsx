@@ -30,25 +30,28 @@ const DEFAULT_USERS = [
     avatarUrl: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80',
     bio: 'Decentralized media creator & core architect on Hyperledger Fabric ⛓️',
     followerCount: 284,
-    followingCount: 142
+    followingCount: 142,
+    mspId: 'Org1MSP'
   },
   {
-    id: 'user_elena',
-    username: 'elena_crypto',
-    displayName: 'Elena Rostova',
-    avatarUrl: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=150&auto=format&fit=crop&q=80',
-    bio: 'Distributed systems & cryptographic proof researcher · Org1MSP',
-    followerCount: 512,
-    followingCount: 220
+    id: 'user_teacher_eva',
+    username: 'teacher_eva',
+    displayName: 'Professor Eva',
+    avatarUrl: 'https://images.unsplash.com/photo-1544005313-94ddf0286df2?w=150&auto=format&fit=crop&q=80',
+    bio: 'Blockchain educator & verified cryptography instructor · Org1MSP',
+    followerCount: 420,
+    followingCount: 180,
+    mspId: 'Org1MSP'
   },
   {
-    id: 'user_marcus',
-    username: 'marcus_art',
-    displayName: 'Marcus Chen',
-    avatarUrl: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150&auto=format&fit=crop&q=80',
-    bio: 'Digital artist & tamper-proof NFT archival photographer',
-    followerCount: 189,
-    followingCount: 95
+    id: 'user_megha',
+    username: 'megha',
+    displayName: 'Megha',
+    avatarUrl: 'https://images.unsplash.com/photo-1517841905240-472988babdf9?w=150&auto=format&fit=crop&q=80',
+    bio: 'Decentralized content contributor & peer validator · Org1MSP',
+    followerCount: 310,
+    followingCount: 115,
+    mspId: 'Org1MSP'
   },
   {
     id: 'user_hyper',
@@ -57,7 +60,8 @@ const DEFAULT_USERS = [
     avatarUrl: 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=150&auto=format&fit=crop&q=80',
     bio: 'Core consensus validator & state synchronization peer on channel mychannel',
     followerCount: 1042,
-    followingCount: 18
+    followingCount: 18,
+    mspId: 'Org1MSP'
   }
 ];
 
@@ -86,7 +90,9 @@ export default function App() {
       const saved = window.localStorage.getItem('instaledger_auth_user');
       if (saved) {
         const parsed = JSON.parse(saved);
-        if (parsed && (parsed.id || parsed.username)) return parsed;
+        if (parsed && (parsed.id || parsed.username) && parsed.username !== 'elena_crypto' && parsed.username !== 'marcus_art') {
+          return parsed;
+        }
       }
     } catch {}
     return DEFAULT_USERS[0];
@@ -140,8 +146,11 @@ export default function App() {
       // 2. Fetch users and active identities
       try {
         const loadedUsers = await api.getUsers();
-        const userList = loadedUsers?.users || loadedUsers;
-        if (Array.isArray(userList) && userList.length > 0) {
+        const rawUserList = loadedUsers?.users || loadedUsers;
+        const userList = (Array.isArray(rawUserList) ? rawUserList : []).filter(
+          u => u && u.username !== 'elena_crypto' && u.username !== 'marcus_art'
+        );
+        if (userList.length > 0) {
           setUsers(userList);
           try {
             const saved = window.localStorage.getItem('instaledger_auth_user');
@@ -154,7 +163,7 @@ export default function App() {
               }
             }
           } catch {}
-          setCurrentUser(prev => prev || userList[0]);
+          setCurrentUser(prev => (prev && prev.username !== 'elena_crypto' && prev.username !== 'marcus_art') ? prev : userList[0]);
         }
       } catch (err) {
         console.warn('Using offline fallback identities:', err);
@@ -186,9 +195,21 @@ export default function App() {
         if (!mergedMap.has(p.id)) {
           mergedMap.set(p.id, p);
         } else {
-          mergedMap.set(p.id, { ...mergedMap.get(p.id), ...p });
+          // Keep local media data URLs — they contain actual blob data the server doesn't have
+          const local = mergedMap.get(p.id);
+          mergedMap.set(p.id, {
+            ...local,
+            ...p,
+            // Always preserve local data URLs so media displays correctly
+            previewUrl: local.previewUrl || p.previewUrl,
+            imageUrl: (local.imageUrl && local.imageUrl.startsWith('data:')) ? local.imageUrl : (p.imageUrl || local.imageUrl),
+            videoUrl: (local.videoUrl && local.videoUrl.startsWith('data:')) ? local.videoUrl : (p.videoUrl || local.videoUrl),
+            thumbnailUrl: local.thumbnailUrl || p.thumbnailUrl,
+            mediaUrl: (local.previewUrl || (local.mediaUrl && local.mediaUrl.startsWith('data:'))) ? (local.previewUrl || local.mediaUrl) : (p.mediaUrl || local.mediaUrl),
+          });
         }
       });
+
 
       const combined = Array.from(mergedMap.values());
       // Sort newest first
@@ -664,7 +685,7 @@ export default function App() {
             api.getUsers().then(list => {
               const uList = list?.users || list;
               if (Array.isArray(uList) && uList.length > 0) {
-                setUsers(uList);
+                setUsers(uList.filter(u => u && u.username !== 'elena_crypto' && u.username !== 'marcus_art'));
               }
             }).catch(() => {});
           }}

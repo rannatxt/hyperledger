@@ -191,8 +191,9 @@ export default function ProfileView({
         ) : (
           <div className="masonry-columns px-3 md:px-6">
             {userPosts.map(post => {
-              const isVideo = post.mediaType === 'video' || /\.(mp4|webm|mov|m4v)$/i.test(post.mediaUrl || '');
-              const thumb = post.thumbnailUrl || (isVideo ? getVideoPosterFallback(post.caption, post.id) : post.mediaUrl);
+              const isVideo = post.mediaType === 'video' || Boolean(post.videoUrl) || /\.(mp4|webm|mov|m4v)$/i.test(post.mediaUrl || post.imageUrl || post.previewUrl || '');
+              const rawMedia = post.previewUrl || post.imageUrl || post.mediaUrl || '';
+              const thumb = post.thumbnailUrl || (isVideo ? getVideoPosterFallback(post.caption, post.id) : rawMedia) || 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=600&auto=format&fit=crop&q=80';
 
               return (
                 <div
@@ -208,6 +209,10 @@ export default function ProfileView({
                         alt={post.caption || 'pin'}
                         className={`w-full h-full object-cover group-hover:scale-105 transition-transform duration-500 f-${post.filterName?.toLowerCase() || 'normal'}`}
                         loading="lazy"
+                        onError={(e) => {
+                          e.currentTarget.onerror = null;
+                          e.currentTarget.src = 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=600&auto=format&fit=crop&q=80';
+                        }}
                       />
 
                       {/* Video Indicator */}

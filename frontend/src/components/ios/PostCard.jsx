@@ -165,6 +165,12 @@ export default function PostCard({
               playsInline
               webkit-playsinline="true"
               className="w-full h-full object-cover"
+              onError={(e) => {
+                e.currentTarget.onerror = null;
+                if (!e.currentTarget.src.includes('mixkit')) {
+                  e.currentTarget.src = 'https://assets.mixkit.co/videos/preview/mixkit-circuit-board-details-in-movement-44026-large.mp4';
+                }
+              }}
               onPlay={() => setIsPlaying(true)}
               onPause={() => setIsPlaying(false)}
             />

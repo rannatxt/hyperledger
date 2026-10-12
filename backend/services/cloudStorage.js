@@ -425,8 +425,9 @@ class CloudStorageService {
       if (isVideo) {
         p.mediaUrl = 'https://assets.mixkit.co/videos/preview/mixkit-circuit-board-details-in-movement-44026-large.mp4';
       } else {
-        const seed = p.id || 'genesis';
-        p.mediaUrl = `https://res.cloudinary.com/${cloudName}/image/upload/v1728234114/instaledger/posts/${seed}.jpg`;
+        p.mediaUrl = this.isCloudinaryReady
+          ? `https://res.cloudinary.com/${cloudName}/image/upload/v1728234114/instaledger/posts/${p.id || 'genesis'}.jpg`
+          : 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=900&auto=format&fit=crop&q=80';
       }
     } else if (p.mediaUrl.startsWith('/api/ipfs/')) {
       const cid = p.mediaUrl.replace('/api/ipfs/', '').split('.')[0];
@@ -434,7 +435,9 @@ class CloudStorageService {
       if (!entry || (!entry.buffer && !entry.filePath)) {
         p.mediaUrl = isVideo
           ? 'https://assets.mixkit.co/videos/preview/mixkit-circuit-board-details-in-movement-44026-large.mp4'
-          : `https://res.cloudinary.com/${cloudName}/image/upload/v1728234114/instaledger/posts/${cid}.jpg`;
+          : (this.isCloudinaryReady
+            ? `https://res.cloudinary.com/${cloudName}/image/upload/v1728234114/instaledger/posts/${cid}.jpg`
+            : 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=900&auto=format&fit=crop&q=80');
       }
     }
 
@@ -445,7 +448,9 @@ class CloudStorageService {
       } else if (p.mediaUrl && p.mediaUrl.startsWith('http')) {
         p.thumbnailUrl = p.mediaUrl;
       } else {
-        p.thumbnailUrl = `https://res.cloudinary.com/${cloudName}/image/upload/v1728234114/instaledger/thumbnails/thumb_${p.id}.jpg`;
+        p.thumbnailUrl = this.isCloudinaryReady
+          ? `https://res.cloudinary.com/${cloudName}/image/upload/v1728234114/instaledger/thumbnails/thumb_${p.id}.jpg`
+          : 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=400&auto=format&fit=crop&q=80';
       }
     }
 

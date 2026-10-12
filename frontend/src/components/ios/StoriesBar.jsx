@@ -2,8 +2,8 @@ import { Plus } from 'lucide-react';
 
 const STORIES = [
   { id: 's1', username: 'ranna',        avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80', unseen: true },
-  { id: 's2', username: 'elena_crypto', avatar: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=150&auto=format&fit=crop&q=80', unseen: true },
-  { id: 's3', username: 'marcus_art',   avatar: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150&auto=format&fit=crop&q=80', unseen: false },
+  { id: 's2', username: 'teacher_eva',  avatar: 'https://images.unsplash.com/photo-1544005313-94ddf0286df2?w=150&auto=format&fit=crop&q=80', unseen: true },
+  { id: 's3', username: 'megha',        avatar: 'https://images.unsplash.com/photo-1517841905240-472988babdf9?w=150&auto=format&fit=crop&q=80', unseen: false },
   { id: 's4', username: 'hyper_peer',   avatar: 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=150&auto=format&fit=crop&q=80', unseen: true },
 ];
 

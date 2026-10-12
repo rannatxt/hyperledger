@@ -247,9 +247,11 @@ export default function ProfileView({
         ) : (
           <div className="ig-profile-grid">
             {displayedList.map((post) => {
-              const isVideo = post.mediaType === 'video' || /\.(mp4|webm|mov|m4v)$/i.test(post.mediaUrl || '');
-              // Robust URL fallback chain: imageUrl (base64/blob) → mediaUrl → thumbnailUrl → video poster fallback
-              const rawUrl = post.imageUrl || post.mediaUrl || post.thumbnailUrl || '';
+              const isVideo = post.mediaType === 'video' ||
+                Boolean(post.videoUrl) ||
+                /\.(mp4|webm|mov|m4v)(\?.*)?$/i.test(post.mediaUrl || post.imageUrl || post.previewUrl || '');
+              // Robust URL fallback chain: previewUrl → imageUrl (base64/blob) → mediaUrl → thumbnailUrl → video poster fallback
+              const rawUrl = post.previewUrl || post.imageUrl || post.mediaUrl || post.thumbnailUrl || '';
               const thumb = post.thumbnailUrl ||
                 (isVideo ? getVideoPosterFallback(post.caption, post.id) : rawUrl) ||
                 getVideoPosterFallback(post.caption, post.id);
@@ -259,20 +261,18 @@ export default function ProfileView({
                 <div
                   key={post.id}
                   onClick={() => onSelectPost?.(post)}
-                  className={`ig-grid-item group ${isDeletingThis ? 'opacity-30 pointer-events-none' : ''}`}
+                  className={`relative aspect-square overflow-hidden rounded-md bg-[#FAFAFA] cursor-pointer group select-none ${isDeletingThis ? 'opacity-30 pointer-events-none' : ''}`}
                 >
                   {isVideo && !post.thumbnailUrl ? (
                     /* Video without pre-generated thumbnail: show native video element for preview */
-                    <div className="w-full h-full relative overflow-hidden bg-black flex items-center justify-center">
-                      <video
-                        src={post.mediaUrl || post.imageUrl}
-                        muted
-                        playsInline
-                        preload="metadata"
-                        className={`w-full h-full object-cover transition-transform duration-300 group-hover:scale-105 f-${post.filterName?.toLowerCase() || 'normal'}`}
-                        onError={(e) => { e.currentTarget.poster = getVideoPosterFallback(post.caption, post.id); }}
-                      />
-                    </div>
+                    <video
+                      src={post.mediaUrl || post.imageUrl || post.previewUrl}
+                      muted
+                      playsInline
+                      preload="metadata"
+                      className={`w-full h-full object-cover transition-transform duration-300 group-hover:scale-105 f-${post.filterName?.toLowerCase() || 'normal'}`}
+                      onError={(e) => { e.currentTarget.poster = getVideoPosterFallback(post.caption, post.id); }}
+                    />
                   ) : (
                     <img
                       src={thumb}
@@ -282,7 +282,7 @@ export default function ProfileView({
                       onError={(e) => {
                         e.currentTarget.onerror = null;
                         // Fallback 1: try raw URL if thumb was a derived value
-                        if (e.currentTarget.src !== rawUrl && rawUrl) {
+                        if (rawUrl && e.currentTarget.src !== rawUrl) {
                           e.currentTarget.src = rawUrl;
                         } else {
                           // Fallback 2: curated Cloudinary seed asset

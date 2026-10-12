@@ -99,6 +99,8 @@ export async function savePostToDevice(post, mediaBlob = null, thumbnailDataUrl 
     const postRecord = {
       ...post,
       mediaUrl: finalMediaUrl || post.mediaUrl,
+      imageUrl: (finalMediaUrl && typeof finalMediaUrl === 'string' && finalMediaUrl.startsWith('data:image')) ? finalMediaUrl : (post.imageUrl || finalMediaUrl),
+      videoUrl: (finalMediaUrl && typeof finalMediaUrl === 'string' && finalMediaUrl.startsWith('data:video')) ? finalMediaUrl : (post.videoUrl || (post.mediaType === 'video' ? finalMediaUrl : '')),
       thumbnailUrl: finalThumbnail || post.thumbnailUrl,
       savedLocally: true,
       localSavedAt: Date.now()
@@ -142,8 +144,13 @@ export async function getDevicePosts() {
         const list = req.result || [];
         // Sanitize any broken local blob: URLs
         list.forEach(p => {
+          const isVideo = p.mediaType === 'video' || /\.(mp4|webm|mov|m4v)$/i.test(p.mediaUrl || '');
           if (p.mediaUrl && p.mediaUrl.startsWith('blob:')) {
-            p.mediaUrl = 'https://res.cloudinary.com/instaledger/image/upload/v1728234114/instaledger/posts/genesis_photo_01.jpg';
+            p.mediaUrl = (p.imageUrl && !p.imageUrl.startsWith('blob:'))
+              ? p.imageUrl
+              : (isVideo
+                ? 'https://assets.mixkit.co/videos/preview/mixkit-circuit-board-details-in-movement-44026-large.mp4'
+                : 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=900&auto=format&fit=crop&q=80');
           }
           if (p.thumbnailUrl && p.thumbnailUrl.startsWith('blob:')) {
             p.thumbnailUrl = p.mediaUrl;
@@ -217,7 +224,7 @@ const GENESIS_ANCHORS = [
   },
   {
     id: 'post_genesis_02',
-    authorUsername: 'elena_crypto',
+    authorUsername: 'teacher_eva',
     blockNumber: 2,
     contentHash: 'bafybeihdwdcefgh4dqkjv67uzcmw7ojee6xedzdetojuzjevtenxquvyku',
     perceptualHash: '01800ff01ff83ffc',
