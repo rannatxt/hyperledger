@@ -77,6 +77,8 @@ export default function UploadSheet({ isOpen, onClose, currentUser, onPostCreate
   const [sha256,           setSha256]           = useState('');
   const [pHash,            setPHash]            = useState('');
   const [pHashReversed,    setPHashReversed]    = useState('');
+  const [pHashFlippedY,    setPHashFlippedY]    = useState('');
+  const [pHashRot180,      setPHashRot180]      = useState('');
   const [videoFingerprint, setVideoFingerprint] = useState('');
   const [hashing,          setHashing]          = useState(false);
   const [isDuplicate,      setIsDuplicate]      = useState(false);
@@ -107,6 +109,8 @@ export default function UploadSheet({ isOpen, onClose, currentUser, onPostCreate
     setSha256('');
     setPHash('');
     setPHashReversed('');
+    setPHashFlippedY('');
+    setPHashRot180('');
     setVideoFingerprint('');
     setHashing(false);
     setIsDuplicate(false);
@@ -144,6 +148,8 @@ export default function UploadSheet({ isOpen, onClose, currentUser, onPostCreate
 
       let clientPHash = '';
       let clientPHashRev = '';
+      let clientPHashFlipY = '';
+      let clientPHashRot180 = '';
       let vSignature = '';
 
       if (isVid) {
@@ -160,9 +166,13 @@ export default function UploadSheet({ isOpen, onClose, currentUser, onPostCreate
           vSignature = vFp.signature;
           clientPHash = vFp.pHash;
           clientPHashRev = vFp.pHashReversed;
+          clientPHashFlipY = vFp.pHashFlippedY || '';
+          clientPHashRot180 = vFp.pHashRot180 || '';
           setVideoFingerprint(vSignature);
           setPHash(clientPHash);
           setPHashReversed(clientPHashRev);
+          setPHashFlippedY(clientPHashFlipY);
+          setPHashRot180(clientPHashRot180);
         } catch (e) {
           console.warn('Video fingerprint fallback:', e);
         }
@@ -171,8 +181,12 @@ export default function UploadSheet({ isOpen, onClose, currentUser, onPostCreate
           const pRes = await computeClientPerceptualHash(f);
           clientPHash = pRes.pHash;
           clientPHashRev = pRes.pHashReversed;
+          clientPHashFlipY = pRes.pHashFlippedY || '';
+          clientPHashRot180 = pRes.pHashRot180 || '';
           setPHash(clientPHash);
           setPHashReversed(clientPHashRev);
+          setPHashFlippedY(clientPHashFlipY);
+          setPHashRot180(clientPHashRot180);
         } catch (e) {
           console.warn('Image pHash fallback:', e);
         }
@@ -183,6 +197,8 @@ export default function UploadSheet({ isOpen, onClose, currentUser, onPostCreate
         contentHash: hash,
         perceptualHash: clientPHash,
         perceptualHashReversed: clientPHashRev,
+        pHashFlippedY: clientPHashFlipY,
+        pHashRot180: clientPHashRot180,
         videoFingerprint: vSignature,
         mediaType: isVid ? 'video' : 'image'
       });
@@ -195,17 +211,28 @@ export default function UploadSheet({ isOpen, onClose, currentUser, onPostCreate
         return;
       }
 
-      // Check duplicate on Fabric backend
+      // Check duplicate on Fabric backend — send ACTUAL FILE for robust server-side bmvbhash
       try {
-        const check = await api.checkDuplicate({
-          contentHash: hash,
-          perceptualHash: clientPHash,
-          perceptualHashReversed: clientPHashRev,
-          mediaType: isVid ? 'video' : 'image',
-          videoFingerprint: vSignature
-        });
+        let check;
+        if (file && !isVid) {
+          // Send the raw file so the backend computes bmvbhash (crop/filter/flip resistant)
+          const checkFd = new FormData();
+          checkFd.append('media', f);
+          check = await api.checkDuplicate(checkFd);
+        } else {
+          // For videos or when file unavailable, send pre-computed hashes
+          check = await api.checkDuplicate({
+            contentHash: hash,
+            perceptualHash: clientPHash,
+            perceptualHashReversed: clientPHashRev,
+            pHashFlippedY: clientPHashFlipY,
+            pHashRot180: clientPHashRot180,
+            mediaType: isVid ? 'video' : 'image',
+            videoFingerprint: vSignature
+          });
+        }
 
-        if (check.isDuplicate) {
+        if (check && check.isDuplicate) {
           setIsDuplicate(true);
           setDupError(check.error || STRICT_DUPLICATE_MSG);
           setDupDetails(check);
@@ -316,6 +343,41 @@ export default function UploadSheet({ isOpen, onClose, currentUser, onPostCreate
       setStageMsg('1. Computing SHA-256 multihash & temporal fingerprint…');
       await new Promise(r => setTimeout(r, 250));
       setStageMsg('2. Verifying cross-device tamper-proof uniqueness…');
+
+      // —— Final guard: re-verify with actual file before commit ——
+      // Catches cases where the on-select check was skipped or is stale
+      if (file) {
+        try {
+          const isVidFile = file.type.startsWith('video/');
+          let finalCheck;
+          if (!isVidFile) {
+            const guardFd = new FormData();
+            guardFd.append('media', file);
+            finalCheck = await api.checkDuplicate(guardFd);
+          } else {
+            finalCheck = await api.checkDuplicate({
+              contentHash: sha256,
+              perceptualHash: pHash,
+              perceptualHashReversed: pHashReversed,
+              pHashFlippedY: pHashFlippedY,
+              pHashRot180: pHashRot180,
+              mediaType: 'video',
+              videoFingerprint: videoFingerprint
+            });
+          }
+          if (finalCheck && finalCheck.isDuplicate) {
+            setIsDuplicate(true);
+            setDupError(finalCheck.error || STRICT_DUPLICATE_MSG);
+            setDupDetails(finalCheck);
+            setStage(1);
+            triggerHaptic('error');
+            return;
+          }
+        } catch (guardErr) {
+          console.warn('[submit] Final guard check warning (non-fatal):', guardErr.message);
+        }
+      }
+
       await new Promise(r => setTimeout(r, 250));
       setStageMsg('3. Generating high-resolution video/photo thumbnail…');
       await new Promise(r => setTimeout(r, 250));
@@ -343,6 +405,8 @@ export default function UploadSheet({ isOpen, onClose, currentUser, onPostCreate
         contentHash: sha256 || ('cid_' + Math.random().toString(36).slice(2)),
         perceptualHash: pHash,
         perceptualHashReversed: pHashReversed,
+        perceptualHashFlippedY: pHashFlippedY,
+        perceptualHashRot180: pHashRot180,
         videoFingerprint: videoFingerprint,
         likeCount: 0,
         commentCount: 0,
@@ -369,6 +433,8 @@ export default function UploadSheet({ isOpen, onClose, currentUser, onPostCreate
         if (resolvedThumbnail) fd.append('thumbnailUrl', resolvedThumbnail);
         if (pHash) fd.append('perceptualHash', pHash);
         if (pHashReversed) fd.append('perceptualHashReversed', pHashReversed);
+        if (pHashFlippedY) fd.append('pHashFlippedY', pHashFlippedY);
+        if (pHashRot180) fd.append('pHashRot180', pHashRot180);
         if (videoFingerprint) fd.append('videoFingerprint', videoFingerprint);
 
         const res = await api.createPost(fd);

@@ -254,6 +254,8 @@ export async function checkDeviceDuplicate({
   contentHash = '',
   perceptualHash = '',
   perceptualHashReversed = '',
+  pHashFlippedY = '',
+  pHashRot180 = '',
   videoFingerprint = '',
   mediaType = 'image'
 }) {
@@ -303,8 +305,10 @@ export async function checkDeviceDuplicate({
       const existingPFlipY   = p.perceptualHashFlippedY     ? p.perceptualHashFlippedY.trim().toLowerCase()     : '';
       const existingPRot180  = p.perceptualHashRot180       ? p.perceptualHashRot180.trim().toLowerCase()       : '';
 
-      // All candidate upload hashes (normal + reversed)
-      const candidateHashes  = [pNorm, pRevNorm].filter(Boolean);
+      // All candidate upload hashes (normal + reversed + flipY + rot180)
+      const pFlipYNorm  = pHashFlippedY ? pHashFlippedY.trim().toLowerCase() : '';
+      const pRot180Norm = pHashRot180   ? pHashRot180.trim().toLowerCase()   : '';
+      const candidateHashes  = [pNorm, pRevNorm, pFlipYNorm, pRot180Norm].filter(Boolean);
       // All registered ledger hashes for this post (normal + reversed + flipY + rot180)
       const registeredHashes = [existingPHash, existingPRev, existingPFlipY, existingPRot180].filter(Boolean);
 
@@ -316,9 +320,9 @@ export async function checkDeviceDuplicate({
         }
       }
 
-      // Threshold: <= 10 bits catches crops, flips, minor colour edits, filters,
+      // Threshold: <= 20 bits catches crops, flips, minor colour edits, filters,
       // hue-shifts, brightness changes, and small rotations without false positives
-      if (minDistance <= 10) {
+      if (minDistance <= 20) {
         return {
           isDuplicate: true,
           matchType: minDistance === hammingDistance(pNorm, existingPHash) ? 'perceptual' : 'perceptual_transformed',

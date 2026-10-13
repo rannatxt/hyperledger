@@ -128,7 +128,7 @@ const handleCreatePost = async (req, res) => {
       const allPosts = JSON.parse(rawFeed);
       const uniqueness = perceptualHashService.checkGlobalUniqueness(
         contentHash, perceptualHash, perceptualHashReversed,
-        allPosts, 12, mediaType, videoFingerprint, pHashFlippedY
+        allPosts, 20, mediaType, videoFingerprint, pHashFlippedY
       );
       if (uniqueness.isDuplicate) {
         return res.status(409).json({
@@ -297,7 +297,7 @@ router.post('/check-duplicate', upload.single('media'), async (req, res) => {
         perceptualHash,
         perceptualHashReversed,
         allPosts,
-        12,
+        20,
         mediaType,
         videoFingerprint,
         pHashFlippedY

@@ -69,9 +69,33 @@ function computeDHashFromCanvasElement(sourceDrawable) {
     }
   }
 
+  // 3. Vertically flipped dHash
+  let flipYBits = '';
+  for (let y = 0; y < 8; y++) {
+    const fy = 7 - y; // mirror row index
+    for (let x = 0; x < 8; x++) {
+      const left = gray[fy * 9 + x];
+      const right = gray[fy * 9 + (x + 1)];
+      flipYBits += left > right ? '1' : '0';
+    }
+  }
+
+  // 4. 180-degree rotated dHash (horizontal flip of vertical flip)
+  let rot180Bits = '';
+  for (let y = 0; y < 8; y++) {
+    const fy = 7 - y;
+    for (let x = 0; x < 8; x++) {
+      const leftRot = gray[fy * 9 + (8 - x)];
+      const rightRot = gray[fy * 9 + (8 - (x + 1))];
+      rot180Bits += leftRot > rightRot ? '1' : '0';
+    }
+  }
+
   return {
     pHash: binaryToHex(bits),
-    pHashReversed: binaryToHex(flippedBits)
+    pHashReversed: binaryToHex(flippedBits),
+    pHashFlippedY: binaryToHex(flipYBits),
+    pHashRot180: binaryToHex(rot180Bits)
   };
 }
 
@@ -102,13 +126,18 @@ export async function computeClientVideoFingerprint(videoSource, sampleCount = 6
           timestamps.push(ratio * duration);
         }
 
+        const frameHashesFlippedY = [];
+        const frameHashesRot180 = [];
+
         for (const t of timestamps) {
           await new Promise((res) => {
             video.currentTime = t;
             video.onseeked = () => {
-              const { pHash, pHashReversed } = computeDHashFromCanvasElement(video);
+              const { pHash, pHashReversed, pHashFlippedY, pHashRot180 } = computeDHashFromCanvasElement(video);
               frameHashes.push(pHash);
               frameHashesReversed.push(pHashReversed);
+              frameHashesFlippedY.push(pHashFlippedY || '');
+              frameHashesRot180.push(pHashRot180 || '');
               res();
             };
           });
@@ -121,9 +150,13 @@ export async function computeClientVideoFingerprint(videoSource, sampleCount = 6
           frameCount: frameHashes.length,
           frameHashes,
           frameHashesReversed,
+          frameHashesFlippedY,
+          frameHashesRot180,
           signature,
           pHash: frameHashes[0] || '',
-          pHashReversed: frameHashesReversed[0] || ''
+          pHashReversed: frameHashesReversed[0] || '',
+          pHashFlippedY: frameHashesFlippedY[0] || '',
+          pHashRot180: frameHashesRot180[0] || ''
         });
       } catch (err) {
         reject(err);
